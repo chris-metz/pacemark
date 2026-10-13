@@ -178,6 +178,7 @@ public nonisolated enum DropdownTab: Hashable, Sendable {
             states[provider.id] = ProviderState()
             schedule(provider.id)
         }
+        selectInitialMenuBarLimit()
     }
 
     private func schedule(_ id: String) {
@@ -231,12 +232,16 @@ public nonisolated enum DropdownTab: Hashable, Sendable {
         guard generations[id, default: 0] == generation else { schedule(id); return }
         now = clock()
         states[id, default: ProviderState()].record(result, finishedAt: now)
+        selectInitialMenuBarLimit()
+        appLog.info("Query finished for \(id, privacy: .public)")
+        schedule(id)
+    }
+
+    private func selectInitialMenuBarLimit() {
         if settings.menuBarLimitID == nil, let first = enabledProviders.first,
            let limit = state(for: first.id).limits?.first {
             settings.menuBarLimitID = limit.qualifiedID(providerID: first.id)
             settings.menuBarLimitTitle = "\(first.name) · \(limit.title)"
         }
-        appLog.info("Query finished for \(id, privacy: .public)")
-        schedule(id)
     }
 }

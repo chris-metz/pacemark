@@ -103,6 +103,24 @@ extension MultiProviderTests {
         #expect(model.overview[0].content == .limit(claudeLimits[1]))
         #expect(model.settings.menuBarLimitID == "claude/weekly")
     }
+
+    @Test func disablingAnUnloadedFirstProviderChoosesTheAlreadyLoadedProviderWithoutASavedSelection() async {
+        let timer = FakeTimer()
+        let model = AppModel(providers: [FakeProvider(.problem(notLoggedIn), id: "claude"),
+                                        FakeProvider(.limits(claudeLimits), id: "codex")],
+                             clock: { beforeTheResets }, sleep: { try await timer.sleep($0) })
+        model.settings.enabledProviderIDs = ["claude", "codex"]
+        model.launch()
+        _ = await timer.armed()
+        _ = await timer.armed()
+        #expect(model.settings.menuBarLimitID == nil)
+
+        model.setProvider("claude", enabled: false)
+
+        #expect(model.settings.menuBarLimitID == "codex/session")
+        #expect(model.settings.menuBarLimitTitle == "Codex · Session limit")
+        #expect(model.menuBar.content == .percentage("14%", isRed: false, isDimmed: false))
+    }
 }
 
 extension MultiProviderTests {

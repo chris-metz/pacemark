@@ -154,12 +154,11 @@ public nonisolated func versionText(infoDictionary: [String: Any]) -> String {
 
 /// What the settings window's `Limit` picker offers and selects (§4).
 public nonisolated struct MenuBarLimitPicker: Equatable, Sendable {
-    /// The entries, in order; one placeholder entry while disabled.
+    /// Current limits in provider order, plus a placeholder for an absent selection.
     public var entries: [Entry]
     /// The id of the selected entry.
     public var selection: String
-    /// There are no current limits: before the first success since launch,
-    /// and while a persistent error is shown.
+    /// No enabled provider has current limits available to choose.
     public var isDisabled: Bool
 
     public init(entries: [Entry], selection: String, isDisabled: Bool) {
@@ -180,29 +179,8 @@ public nonisolated struct MenuBarLimitPicker: Equatable, Sendable {
     }
 }
 
-/// The `Limit` picker for the current `limits` (nil before the first
-/// success and while a persistent error is shown):
-///
-/// - With limits, one entry per limit by title, in provider order. It
-///   selects the stored choice, or the first limit with nothing stored. A
-///   stored choice missing from the limits gets an extra last entry,
-///   `<stored title> (not available)`, and is selected.
-/// - Without limits, it is disabled and shows the stored title, or `—`
-///   without one.
-public nonisolated func menuBarLimitPicker(limits: [Limit]?, providerID: String, settings: Settings) -> MenuBarLimitPicker {
-    let storedTitle = settings.menuBarLimitTitle ?? "—"
-    guard let limits, !limits.isEmpty else {
-        return MenuBarLimitPicker(entries: [.init(id: "", title: storedTitle)], selection: "", isDisabled: true)
-    }
-    var entries = limits.map { MenuBarLimitPicker.Entry(id: $0.qualifiedID(providerID: providerID), title: $0.title) }
-    let selection = settings.menuBarLimitID ?? entries[0].id
-    if !entries.contains(where: { $0.id == selection }) {
-        entries.append(.init(id: selection, title: "\(storedTitle) (not available)"))
-    }
-    return MenuBarLimitPicker(entries: entries, selection: selection, isDisabled: false)
-}
-
 /// Preserves the saved choice even when its provider or window is absent.
+/// The model owns choosing the initial limit; without a choice, show `—`.
 public nonisolated func menuBarLimitPicker(entries current: [MenuBarLimitPicker.Entry], settings: Settings) -> MenuBarLimitPicker {
     var entries = current
     let selection = settings.menuBarLimitID ?? ""

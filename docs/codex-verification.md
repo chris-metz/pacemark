@@ -29,6 +29,19 @@ Codex schedules a query at the observed reset, independently of Claude's existin
 - Display regression tests retain Claude's pace, reset, stale-age, and drawn menu bar behavior.
 - Native `NSHostingView` snapshots cover Overview, Codex/model windows, setup, placeholders, errors/details, loading, temporary failure, missing reset, expiry, all-hidden tabs, stale readings, and Settings in light/dark. All 60 new or changed reference images were visually inspected.
 - The opt-in live check is `PACEMARK_LIVE_CODEX=1 swift test --filter installedCLICompatibility`. It passed against the installed 0.162.1 CLI after verifying the normal account notification behavior.
+- Final `swift build` and full `swift test` passed. The live compatibility test is opt-in and was run separately; the default suite requires no account. The six `scripts/release-notes-test.sh` cases also passed.
+
+## Review against `f09c192`
+
+Standards and Spec were reviewed by separate agents. The obsolete single-provider picker helper was removed, and its tests now exercise the production picker. A final model regression test also exposed an initial-selection gap: when Claude had no limits and was disabled, already loaded Codex limits became the first available choice but were not selected until another query. Reconciliation now selects that limit immediately, only when no choice is saved. Both fixes were rechecked before the full test run.
+
+### Standards
+
+No documented-standard violations or remaining actionable findings. One optional maintainability observation remains: a per-provider runtime value could group the lifecycle dictionaries in `AppModel`. No lifecycle defect was found from their current shape.
+
+### Spec
+
+No remaining code findings or unrequested scope. The native interaction check below remains partial.
 
 ## Native interaction limitation
 

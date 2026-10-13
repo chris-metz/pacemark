@@ -8,7 +8,7 @@ import Testing
 struct AppModelSettingsTests {
     @Test func theModelStartsWithTheStoredSettings() {
         let defaults = ThrowawayDefaults()
-        let stored = Settings(refreshIntervalMinutes: 10, showPercentage: false, hiddenLimits: ["claude/weekly"])
+        let stored = Settings(refreshIntervalMinutes: 10, showPercentage: false, hiddenLimits: ["claude/weekly"], enabledProviderIDs: ["fake"])
         SettingsStore(defaults: defaults.defaults).save(stored)
 
         let model = AppModel(provider: FakeProvider(), settingsStore: SettingsStore(defaults: defaults.defaults))
@@ -24,7 +24,7 @@ struct AppModelSettingsTests {
         model.settings.hiddenLimits = ["claude/model:Fable"]
 
         #expect(SettingsStore(defaults: defaults.defaults).load()
-            == Settings(showPercentage: false, hiddenLimits: ["claude/model:Fable"]))
+            == Settings(showPercentage: false, hiddenLimits: ["claude/model:Fable"], enabledProviderIDs: ["fake"]))
     }
 
     @Test func pickingAMenuBarLimitStoresItsQualifiedIDAndTitleAndShowsAtOnce() async {
@@ -40,13 +40,13 @@ struct AppModelSettingsTests {
 
         let stored = SettingsStore(defaults: defaults.defaults).load()
         #expect(stored.menuBarLimitID == "fake/weekly")
-        #expect(stored.menuBarLimitTitle == "Weekly limit")
+        #expect(stored.menuBarLimitTitle == "Fake · Weekly limit")
         #expect(model.display.menuBar.accessibilityText == "Weekly limit 36%")
     }
 
     /// The picker's `(not available)` entry is no limit to pick.
     @Test func pickingTheMissingStoredChoiceChangesNothing() async {
-        let stored = Settings(menuBarLimitID: "fake/model:Opus", menuBarLimitTitle: "Opus limit")
+        let stored = Settings(menuBarLimitID: "fake/model:Opus", menuBarLimitTitle: "Opus limit", enabledProviderIDs: ["fake"])
         let model = await model(after: .limits(claudeLimits), settings: stored, at: beforeTheResets)
 
         model.pickMenuBarLimit(id: "fake/model:Opus")

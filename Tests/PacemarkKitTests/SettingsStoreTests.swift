@@ -5,6 +5,26 @@ import Testing
 /// The settings store over `UserDefaults` (§6.5), each test with a suite of
 /// its own.
 @Suite struct SettingsStoreTests {
+    @Test(arguments: ["refreshIntervalMinutes", "showPercentage", "hiddenLimits", "menuBarLimitID", "menuBarLimitTitle"])
+    func anyLegacyPreferenceEnablesOnlyClaudeOnce(key: String) {
+        let defaults = ThrowawayDefaults()
+        defaults.defaults.set("legacy", forKey: key)
+        let store = SettingsStore(defaults: defaults.defaults)
+        #expect(store.load().enabledProviderIDs == ["claude"])
+        var settings = store.load()
+        settings.enabledProviderIDs = []
+        store.save(settings)
+        #expect(store.load().enabledProviderIDs.isEmpty)
+    }
+
+    @Test func aFreshEmptySelectionIsPersistedBeforeAnyOtherPreferenceIsSaved() {
+        let defaults = ThrowawayDefaults()
+        let store = SettingsStore(defaults: defaults.defaults)
+        #expect(store.load().enabledProviderIDs.isEmpty)
+        defaults.defaults.set(false, forKey: "showPercentage")
+        #expect(store.load().enabledProviderIDs.isEmpty)
+    }
+
     @Test func everySettingSurvivesARoundTrip() {
         let defaults = ThrowawayDefaults()
         let settings = Settings(
@@ -53,7 +73,7 @@ import Testing
         defaults.defaults.set(3, forKey: "menuBarLimitID")
         defaults.defaults.set(["Fable limit"], forKey: "menuBarLimitTitle")
 
-        #expect(SettingsStore(defaults: defaults.defaults).load() == Settings())
+        #expect(SettingsStore(defaults: defaults.defaults).load() == Settings(enabledProviderIDs: ["claude"]))
     }
 
     @Test func hiddenLimitsWithAnElementOfTheWrongTypeReadAsNone() {

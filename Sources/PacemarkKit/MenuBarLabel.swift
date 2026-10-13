@@ -11,7 +11,7 @@ public struct MenuBarLabel: View {
     }
 
     public var body: some View {
-        Image(nsImage: menuBarImage(model.display.menuBar))
+        Image(nsImage: menuBarImage(model.menuBar))
     }
 }
 

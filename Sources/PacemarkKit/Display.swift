@@ -56,7 +56,7 @@ private nonisolated func visibleRows(_ limits: [Limit], providerID: String, sett
 }
 
 /// The menu bar item (§2 States) for the menu bar limit: the picked one, or
-/// the first limit whenever the picked one is missing. With the percentage
+/// the first limit only when no selection has been saved. With the percentage
 /// off, the glyph carries red and dimming; the accessibility text still
 /// names the limit and its percentage.
 private nonisolated func menuBarDisplay(
@@ -71,10 +71,13 @@ private nonisolated func menuBarDisplay(
     }
     let limits = state.limits ?? []
     let picked = limits.first { $0.qualifiedID(providerID: providerID) == settings.menuBarLimitID }
-    guard let limit = picked ?? limits.first else {
+    guard let limit = picked ?? (settings.menuBarLimitID == nil ? limits.first : nil) else {
         return MenuBarDisplay(content: .glyph(), accessibilityText: "Pacemark")
     }
     let menuBarLimitDisplay = limitDisplay(limit, now: now)
+    guard menuBarLimitDisplay.state != .waitingForUpdate else {
+        return MenuBarDisplay(content: .glyph(), accessibilityText: "Pacemark")
+    }
     let isRed = menuBarLimitDisplay.state.isRed
     return MenuBarDisplay(
         content: settings.showPercentage
@@ -118,4 +121,36 @@ private nonisolated func ageText(_ age: TimeInterval) -> String {
     case ..<(2 * 24 * 60): "1 day"
     default: "\(minutes / (24 * 60)) days"
     }
+}
+
+/// One enabled provider in Overview, independent of provider-tab visibility.
+public nonisolated struct OverviewEntry: Equatable, Sendable, Identifiable {
+    public let id: String
+    public let name: String
+    public let content: Content
+    public let updateLine: String?
+
+    public enum Content: Equatable, Sendable {
+        case limit(Limit)
+        case noWeeklyLimit
+        case loading
+        case noValues
+        case problem(Problem)
+    }
+}
+
+public nonisolated func overviewEntry(_ state: ProviderState, providerID: String, providerName: String,
+                                      settings: Settings, now: Date) -> OverviewEntry {
+    let content: OverviewEntry.Content
+    switch state.lastOutcome {
+    case nil: content = .loading
+    case .problem(let problem): content = .problem(problem)
+    default:
+        if let limits = state.limits {
+            let weekly = limits.filter(\.isGeneralWeekly)
+            content = weekly.count == 1 ? .limit(weekly[0]) : .noWeeklyLimit
+        } else { content = .noValues }
+    }
+    return OverviewEntry(id: providerID, name: providerName, content: content,
+                         updateLine: display(state, providerID: providerID, settings: settings, now: now).updateLine)
 }

@@ -4,6 +4,20 @@ import Testing
 @testable import PacemarkClaude
 
 @Suite struct ProcessRunnerTests {
+    @Test func cancellationWaitsForTheChildToExit() async throws {
+        let directory = try TemporaryDirectory()
+        let pidFile = directory.url.appending(path: "pid")
+        let job = command("/bin/sh", "-c", "echo $$ > '\(pidFile.path)'; trap '' TERM; exec /bin/sleep 20")
+        let task = Task { try await ProcessRunner().run(job) }
+        for _ in 0..<100 where !FileManager.default.fileExists(atPath: pidFile.path) {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let pid = try #require(pid_t(String(contentsOf: pidFile, encoding: .utf8).trimmingCharacters(in: .newlines)))
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(await ends(pid))
+    }
+
     @Test func echoExitsWithItsOutput() async throws {
         let result = try await ProcessRunner().run(command("/bin/echo", "hello"))
 

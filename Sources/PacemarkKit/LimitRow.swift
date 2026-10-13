@@ -17,11 +17,13 @@ struct LimitRow: View {
             }
             .font(.system(size: 13, weight: .semibold))
 
-            LimitBar(
+            if display.state != .waitingForUpdate {
+                LimitBar(
                 fillFraction: display.fillFraction,
                 fillColor: display.fillColor.color,
                 paceMarker: display.paceMarker
-            )
+                )
+            }
 
             HStack {
                 Text(display.resetLine)

@@ -54,6 +54,8 @@ public nonisolated struct LimitDisplay: Equatable, Sendable {
 /// The limit states of §3, in the order they are checked.
 public nonisolated enum LimitState: Equatable, Sendable {
     case noWindow
+    case timingUnavailable
+    case waitingForUpdate
     case exhausted
     case high
     case overPace
@@ -86,7 +88,13 @@ public nonisolated func limitDisplay(
     timeZone: TimeZone = .autoupdatingCurrent,
     locale: Locale = .autoupdatingCurrent
 ) -> LimitDisplay {
-    guard let window = limit.window, window.resetsAt > now else {
+    guard let window = limit.window, window.resetsAt.map({ $0 > now }) ?? true else {
+        if limit.resetBehavior == .awaitReading {
+            return LimitDisplay(title: limit.title, state: .waitingForUpdate, displayedUtilization: 0,
+                                percentText: "", fillFraction: 0, fillColor: .secondary, paceMarker: nil,
+                                resetLine: "Waiting for updated limits", paceText: nil, paceTextColor: .secondary,
+                                accessibilityText: "\(limit.title), waiting for updated limits")
+        }
         let resetLine = "Starts with your next message"
         return LimitDisplay(
             title: limit.title,
@@ -104,8 +112,19 @@ public nonisolated func limitDisplay(
     }
     let utilization = min(max(window.utilization, 0), 100)
     let displayed = Int(utilization.rounded())
-    let windowStart = window.resetsAt.addingTimeInterval(-limit.windowLength)
-    let pace = min(max(now.timeIntervalSince(windowStart) / limit.windowLength * 100, 0), 100)
+    guard let resetsAt = window.resetsAt, let windowLength = limit.windowLength, windowLength > 0 else {
+        let line = window.resetsAt.map { resetLine($0, now: now, timeZone: timeZone, locale: locale) }
+            ?? "Reset time unavailable"
+        return LimitDisplay(
+            title: limit.title, state: displayed >= 90 ? (displayed == 100 ? .exhausted : .high) : .timingUnavailable,
+            displayedUtilization: displayed, percentText: "\(displayed)%", fillFraction: Double(displayed) / 100,
+            fillColor: displayed >= 90 ? .red : .blue, paceMarker: nil, resetLine: line,
+            paceText: nil, paceTextColor: .secondary,
+            accessibilityText: "\(limit.title), \(displayed)%, \(line.lowercasedFirstLetter)"
+        )
+    }
+    let windowStart = resetsAt.addingTimeInterval(-windowLength)
+    let pace = min(max(now.timeIntervalSince(windowStart) / windowLength * 100, 0), 100)
     let deviation = Int((utilization - pace).rounded())
     let percentText = "\(displayed)%"
 
@@ -128,10 +147,10 @@ public nonisolated func limitDisplay(
     let fillColor: LimitColor = switch state {
     case .exhausted, .high: .red
     case .overPace: .orange
-    case .noWindow, .onPace, .underPace: .blue
+    case .noWindow, .timingUnavailable, .waitingForUpdate, .onPace, .underPace: .blue
     }
 
-    let resetLine = resetLine(window.resetsAt, now: now, timeZone: timeZone, locale: locale)
+    let resetLine = resetLine(resetsAt, now: now, timeZone: timeZone, locale: locale)
     return LimitDisplay(
         title: limit.title,
         state: state,

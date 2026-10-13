@@ -78,7 +78,7 @@ private let unexpectedResponse = Problem(
 
         let result = await provider(runner).fetch()
 
-        guard case .limits(let limits) = result else {
+        guard case .limits(let limits, _) = result else {
             Issue.record("expected limits, got \(result)")
             return
         }

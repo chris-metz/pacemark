@@ -26,11 +26,23 @@ public struct SettingsView: View {
                     }
                 }
             }
+            Section {
+                ForEach(model.providers, id: \.id) { provider in
+                    Toggle(provider.name, isOn: Binding {
+                        model.settings.enabledProviderIDs.contains(provider.id)
+                    } set: { model.setProvider(provider.id, enabled: $0) })
+                    .toggleStyle(.switch)
+                }
+            } header: {
+                Text("Providers")
+            } footer: {
+                Text("Use each provider's installed command-line tool and existing login.")
+            }
             Section("Menu Bar") {
                 menuBarLimit
                 Toggle("Show percentage", isOn: $model.settings.showPercentage)
             }
-            Section("Dropdown") {
+            Section("Provider Tabs") {
                 shownLimits
             }
             Section {
@@ -46,8 +58,7 @@ public struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 440)
-        // The window hugs the content instead of keeping a default height.
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(height: 520)
     }
 
     /// The menu bar limit, picked from the current limits.
@@ -62,21 +73,27 @@ public struct SettingsView: View {
         .disabled(picker.isDisabled)
     }
 
-    /// One switch per current limit, on when the dropdown shows it.
+    /// Visibility applies only to provider tabs, never to Overview.
     @ViewBuilder private var shownLimits: some View {
-        let limits = model.state.limits ?? []
-        if limits.isEmpty {
-            Text("Your limits appear here once Pacemark has loaded them.")
+        if model.enabledProviders.isEmpty {
+            Text("Enable a provider to choose which limits appear in its tab.")
                 .foregroundStyle(.secondary)
-        } else {
+        }
+        ForEach(model.enabledProviders, id: \.id) { provider in
+            let limits = model.state(for: provider.id).limits ?? []
+            if limits.isEmpty {
+                Text("\(provider.name)'s limits appear here once loaded.")
+                    .foregroundStyle(.secondary)
+            }
             ForEach(limits) { limit in
-                Toggle(limit.title, isOn: Binding {
-                    model.isLimitShownInDropdown(limit)
-                } set: { isShown in
-                    model.setLimit(limit, shownInDropdown: isShown)
-                })
+                Toggle("\(provider.name) · \(limit.title)", isOn: Binding {
+                    model.settings.isLimitShownInDropdown(limit, providerID: provider.id)
+                } set: { model.setLimit(limit, providerID: provider.id, shownInDropdown: $0) })
             }
         }
+        Text("Overview always shows each enabled provider's general weekly limit.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
     }
 }
 
@@ -137,12 +154,11 @@ public nonisolated func versionText(infoDictionary: [String: Any]) -> String {
 
 /// What the settings window's `Limit` picker offers and selects (§4).
 public nonisolated struct MenuBarLimitPicker: Equatable, Sendable {
-    /// The entries, in order; one placeholder entry while disabled.
+    /// Current limits in provider order, plus a placeholder for an absent selection.
     public var entries: [Entry]
     /// The id of the selected entry.
     public var selection: String
-    /// There are no current limits: before the first success since launch,
-    /// and while a persistent error is shown.
+    /// No enabled provider has current limits available to choose.
     public var isDisabled: Bool
 
     public init(entries: [Entry], selection: String, isDisabled: Bool) {
@@ -163,24 +179,14 @@ public nonisolated struct MenuBarLimitPicker: Equatable, Sendable {
     }
 }
 
-/// The `Limit` picker for the current `limits` (nil before the first
-/// success and while a persistent error is shown):
-///
-/// - With limits, one entry per limit by title, in provider order. It
-///   selects the stored choice, or the first limit with nothing stored. A
-///   stored choice missing from the limits gets an extra last entry,
-///   `<stored title> (not available)`, and is selected.
-/// - Without limits, it is disabled and shows the stored title, or `—`
-///   without one.
-public nonisolated func menuBarLimitPicker(limits: [Limit]?, providerID: String, settings: Settings) -> MenuBarLimitPicker {
-    let storedTitle = settings.menuBarLimitTitle ?? "—"
-    guard let limits, !limits.isEmpty else {
-        return MenuBarLimitPicker(entries: [.init(id: "", title: storedTitle)], selection: "", isDisabled: true)
-    }
-    var entries = limits.map { MenuBarLimitPicker.Entry(id: $0.qualifiedID(providerID: providerID), title: $0.title) }
-    let selection = settings.menuBarLimitID ?? entries[0].id
+/// Preserves the saved choice even when its provider or window is absent.
+/// The model owns choosing the initial limit; without a choice, show `—`.
+public nonisolated func menuBarLimitPicker(entries current: [MenuBarLimitPicker.Entry], settings: Settings) -> MenuBarLimitPicker {
+    var entries = current
+    let selection = settings.menuBarLimitID ?? ""
     if !entries.contains(where: { $0.id == selection }) {
-        entries.append(.init(id: selection, title: "\(storedTitle) (not available)"))
+        let title = settings.menuBarLimitTitle.map { "\($0) (not available)" } ?? "—"
+        entries.append(.init(id: selection, title: title))
     }
-    return MenuBarLimitPicker(entries: entries, selection: selection, isDisabled: false)
+    return MenuBarLimitPicker(entries: entries, selection: selection, isDisabled: current.isEmpty)
 }

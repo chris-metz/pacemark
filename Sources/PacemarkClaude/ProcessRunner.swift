@@ -16,6 +16,7 @@ nonisolated struct ProcessRunner: CommandRunner {
 
     @concurrent
     func run(_ command: Command) async throws -> CommandResult {
+        try Task.checkCancellation()
         let process = Process()
         process.executableURL = command.executable
         process.arguments = command.arguments
@@ -44,17 +45,27 @@ nonisolated struct ProcessRunner: CommandRunner {
             return true
         }
 
-        for await _ in exit {}
-        killer.cancel()
-        let timedOut = await killer.value
-        if await !bothReachEnd(output, errors, within: outputGracePeriod) {
-            claudeLog.error("Output stayed open after the child exited: killed its process group")
+        let result = await withTaskCancellationHandler {
+            // Waiting and draining must survive cancellation so the caller
+            // never observes an unfinished child or starts another over it.
+            await Task.detached {
+                for await _ in exit {}
+                killer.cancel()
+                let timedOut = await killer.value
+                if await !bothReachEnd(output, errors, within: outputGracePeriod) {
+                    claudeLog.error("Output stayed open after the child exited: killed its process group")
+                    kill(group, SIGKILL)
+                }
+                let result = CommandResult.exited(
+                    status: process.terminationStatus, stdout: output.stop(), stderr: errors.stop()
+                )
+                return timedOut ? .timedOut : result
+            }.value
+        } onCancel: {
             kill(group, SIGKILL)
         }
-        let result = CommandResult.exited(
-            status: process.terminationStatus, stdout: output.stop(), stderr: errors.stop()
-        )
-        return timedOut ? .timedOut : result
+        try Task.checkCancellation()
+        return result
     }
 
     /// Whether every process holding the write ends of both pipes closes

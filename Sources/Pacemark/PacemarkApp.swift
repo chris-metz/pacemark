@@ -1,4 +1,5 @@
 import PacemarkClaude
+import PacemarkCodex
 import PacemarkKit
 import SwiftUI
 
@@ -11,7 +12,7 @@ struct PacemarkApp: App {
     @State private var openAtLogin = OpenAtLogin(loginItem: MainAppLoginItem(), bundleURL: Bundle.main.bundleURL)
 
     init() {
-        let model = AppModel(provider: ClaudeProvider(), settingsStore: SettingsStore(defaults: .standard))
+        let model = AppModel(providers: [ClaudeProvider(), CodexProvider()], settingsStore: SettingsStore(defaults: .standard))
         _model = State(initialValue: model)
         Driver.start(model)
     }
@@ -19,6 +20,7 @@ struct PacemarkApp: App {
     var body: some Scene {
         MenuBarExtra {
             DropdownView(model: model)
+                .onAppear { model.dropdownOpened() }
         } label: {
             MenuBarItemLabel(model: model, delegate: delegate)
         }

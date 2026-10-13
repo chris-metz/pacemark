@@ -2,6 +2,7 @@ import Foundation
 
 /// What the app knows about one provider's queries (§6.2).
 public nonisolated struct ProviderState: Equatable, Sendable {
+    public var identity: ProviderIdentity?
     /// When the last query finished; nil before the first.
     public var lastAttemptAt: Date?
     /// The result of the last query; nil before the first.
@@ -22,8 +23,10 @@ public nonisolated struct ProviderState: Equatable, Sendable {
         limits: [Limit]? = nil,
         lastSuccessAt: Date? = nil,
         failureStreak: Int = 0,
-        isQuerying: Bool = false
+        isQuerying: Bool = false,
+        identity: ProviderIdentity? = nil
     ) {
+        self.identity = identity
         self.lastAttemptAt = lastAttemptAt
         self.lastOutcome = lastOutcome
         self.limits = limits
@@ -36,15 +39,36 @@ public nonisolated struct ProviderState: Equatable, Sendable {
     /// limits, a temporary error keeps them and raises the failure streak,
     /// a problem clears them.
     public mutating func record(_ result: FetchResult, finishedAt: Date) {
+        let incoming: ProviderIdentity?
+        let discard: Bool
+        switch result {
+        case .limits(_, let identity): (incoming, discard) = (identity, false)
+        case .unavailableForAccount(let identity, let discardPrevious): (incoming, discard) = (identity, discardPrevious)
+        default: (incoming, discard) = (nil, false)
+        }
+        let changed = incoming.map { next in
+            guard let previous = identity else { return true }
+            return (next.email != nil && previous.email != nil && next.email != previous.email)
+                || (next.accountID != nil && previous.accountID != nil && next.accountID != previous.accountID)
+        } ?? false
+        if discard || changed {
+            limits = nil
+            lastSuccessAt = nil
+            failureStreak = 0
+        }
+        if let incoming {
+            identity = changed ? incoming : ProviderIdentity(email: incoming.email ?? identity?.email,
+                                                             accountID: incoming.accountID ?? identity?.accountID)
+        }
         isQuerying = false
         lastAttemptAt = finishedAt
         switch result {
-        case .limits(let limits):
+        case .limits(let limits, _):
             self.limits = limits
             lastSuccessAt = finishedAt
             lastOutcome = .success
             failureStreak = 0
-        case .unavailable:
+        case .unavailable, .unavailableForAccount:
             lastOutcome = .unavailable
             failureStreak += 1
         case .problem(let problem):
@@ -63,8 +87,7 @@ public nonisolated enum QueryOutcome: Equatable, Sendable {
 }
 
 /// When the next scheduled query runs (§6.2): the earliest of the launch,
-/// the retry or refresh interval after the last attempt, and 65 s after
-/// every reset time. Never before `now`: a time that has passed means
+/// the retry or refresh interval after the last attempt, and the provider's reset time (65 s later for Claude). Never before `now`: a time that has passed means
 /// "query now".
 public nonisolated func nextQueryAt(_ state: ProviderState, interval: TimeInterval, now: Date) -> Date {
     guard let lastAttemptAt = state.lastAttemptAt else { return now }
@@ -73,10 +96,10 @@ public nonisolated func nextQueryAt(_ state: ProviderState, interval: TimeInterv
     case 2: 2 * 60
     default: interval
     }
-    // Every limit, also one the dropdown hides. The 65 s get past the
-    // provider's own 60 s snapshot (§6.2).
+    // Claude has a 60 s snapshot. Codex queries at reset and continues to
+    // hide expired data if the service still returns the old window.
     let afterResets = (state.limits ?? [])
-        .compactMap { $0.window?.resetsAt.addingTimeInterval(65) }
+        .compactMap { $0.window?.resetsAt?.addingTimeInterval($0.resetBehavior == .inactive ? 65 : 0) }
         .filter { $0 > lastAttemptAt }
     let next = ([lastAttemptAt.addingTimeInterval(wait)] + afterResets).min()!
     return max(next, now)

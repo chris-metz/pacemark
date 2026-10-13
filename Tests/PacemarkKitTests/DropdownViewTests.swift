@@ -136,7 +136,8 @@ import Testing
     }
 
     private func dropdown(_ model: AppModel) -> some View {
-        DropdownView(model: model)
+        model.selectedTab = .provider(model.providers[0].id)
+        return DropdownView(model: model)
             .environment(\.timeZone, berlin)
             .environment(\.locale, enDE)
     }

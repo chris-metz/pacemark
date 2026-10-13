@@ -2,93 +2,121 @@ import Foundation
 import Observation
 import os
 
-/// The app's state: the provider, its query state, the settings and the
-/// current time. The menu bar item, the dropdown and the settings window
-/// render from it.
-///
-/// Events come in as methods; the model decides when to query (§6.2) and
-/// keeps one timer task for the next scheduled query.
+public nonisolated enum DropdownTab: Hashable, Sendable {
+    case overview
+    case provider(String)
+}
+
+/// Owns settings and independent query state for every enabled provider.
+/// Tab navigation and the saved menu bar limit are independent choices.
 @Observable public final class AppModel {
-    public let provider: any Provider
-    /// The user's settings, written through to the store on every change.
-    /// A new refresh interval counts from the last attempt, so if that time
-    /// has passed, the query runs now (§6.2).
+    public let providers: [any Provider]
     public var settings: Settings {
         didSet {
             settingsStore?.save(settings)
+            if settings.enabledProviderIDs != oldValue.enabledProviderIDs {
+                reconcileProviders()
+            }
             if settings.refreshIntervalMinutes != oldValue.refreshIntervalMinutes {
-                appLog.info("Refresh interval changed to \(self.settings.refreshIntervalMinutes, privacy: .public) min")
-                schedule()
+                for provider in enabledProviders { schedule(provider.id) }
             }
         }
     }
-    /// What the model knows about the provider's queries.
-    public private(set) var state = ProviderState()
-    /// The time everything renders at. Set at launch, on every full minute,
-    /// when the dropdown opens and after every query.
+    public var selectedTab: DropdownTab = .overview
     public private(set) var now: Date
+    public private(set) var states: [String: ProviderState] = [:]
 
     @ObservationIgnored private let settingsStore: SettingsStore?
     @ObservationIgnored private let clock: () -> Date
     @ObservationIgnored private let sleep: @Sendable (TimeInterval) async throws -> Void
-    @ObservationIgnored private var timer: Task<Void, Never>?
-    /// The network path's last status; unknown counts as not satisfied.
+    @ObservationIgnored private let expirySleep: @Sendable (TimeInterval) async throws -> Void
+    @ObservationIgnored private var expiryTimers: [String: Task<Void, Never>] = [:]
+    @ObservationIgnored private var timers: [String: Task<Void, Never>] = [:]
+    @ObservationIgnored private var queries: [String: Task<Void, Never>] = [:]
+    @ObservationIgnored private var generations: [String: Int] = [:]
+    @ObservationIgnored private var wakeDeadlines: [String: Date] = [:]
     @ObservationIgnored private var isNetworkSatisfied = false
-    /// After a wake without network, the query runs at this time at the
-    /// latest; nil when no wake waits.
-    @ObservationIgnored private var wakeDeadline: Date?
+    @ObservationIgnored private var hasLaunched = false
 
-    /// - Parameters:
-    ///   - settingsStore: Where the settings come from and go to; without
-    ///     one, the model starts with the defaults and keeps changes to
-    ///     itself.
-    ///   - clock: The current time.
-    ///   - sleep: Waits the given number of seconds; throws when cancelled.
     public init(
-        provider: any Provider,
+        providers: [any Provider],
         settingsStore: SettingsStore? = nil,
         clock: @escaping () -> Date = { Date() },
-        sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
+        sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
+        expirySleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
     ) {
-        self.provider = provider
+        precondition(Set(providers.map(\.id)).count == providers.count, "Provider IDs must be unique")
+        self.providers = providers
         self.settingsStore = settingsStore
         settings = settingsStore?.load() ?? Settings()
         self.clock = clock
         self.sleep = sleep
+        self.expirySleep = expirySleep
         now = clock()
     }
 
-    /// What the menu bar item and the dropdown show at `now` (§6.3).
-    public var display: Display {
-        PacemarkKit.display(state, providerID: provider.id, settings: settings, now: now)
+    isolated deinit {
+        for task in timers.values { task.cancel() }
+        for task in expiryTimers.values { task.cancel() }
+        for task in queries.values { task.cancel() }
     }
 
-    // MARK: Settings window
+    public var enabledProviders: [any Provider] {
+        providers.filter { settings.enabledProviderIDs.contains($0.id) }
+    }
 
-    /// What the settings window's `Limit` picker offers and selects (§4).
+    public func state(for providerID: String) -> ProviderState {
+        states[providerID] ?? ProviderState()
+    }
+
+    public func providerDisplay(for providerID: String) -> Display {
+        PacemarkKit.display(state(for: providerID), providerID: providerID, settings: settings, now: now)
+    }
+
+    public var overview: [OverviewEntry] {
+        enabledProviders.map {
+            overviewEntry(state(for: $0.id), providerID: $0.id, providerName: $0.name, settings: settings, now: now)
+        }
+    }
+
+    public var menuBar: MenuBarDisplay {
+        guard let selection = settings.menuBarLimitID,
+              let provider = enabledProviders.first(where: { selection.hasPrefix($0.id + "/") }) else {
+            return MenuBarDisplay(content: .glyph(), accessibilityText: "Pacemark")
+        }
+        return providerDisplay(for: provider.id).menuBar
+    }
+
     public var menuBarLimitPicker: MenuBarLimitPicker {
-        PacemarkKit.menuBarLimitPicker(limits: state.limits, providerID: provider.id, settings: settings)
+        let entries = enabledProviders.flatMap { provider in
+            (state(for: provider.id).limits ?? []).map {
+                MenuBarLimitPicker.Entry(id: $0.qualifiedID(providerID: provider.id), title: "\(provider.name) · \($0.title)")
+            }
+        }
+        return PacemarkKit.menuBarLimitPicker(entries: entries, settings: settings)
     }
 
-    /// Makes the current limit with the qualified id `id` the menu bar
-    /// limit: stores the id, and the title for when it goes missing
-    /// (`(not available)`). An id of no current limit, such as the
-    /// `(not available)` entry's, changes nothing.
     public func pickMenuBarLimit(id: String) {
-        guard let limit = state.limits?.first(where: { qualifiedID(of: $0) == id }) else { return }
-        settings.menuBarLimitID = id
-        settings.menuBarLimitTitle = limit.title
+        for provider in enabledProviders {
+            if let limit = state(for: provider.id).limits?.first(where: { $0.qualifiedID(providerID: provider.id) == id }) {
+                settings.menuBarLimitID = id
+                settings.menuBarLimitTitle = "\(provider.name) · \(limit.title)"
+                return
+            }
+        }
     }
 
-    /// Whether the dropdown shows `limit`.
-    public func isLimitShownInDropdown(_ limit: Limit) -> Bool {
-        settings.isLimitShownInDropdown(limit, providerID: provider.id)
+    public func setProvider(_ id: String, enabled: Bool) {
+        guard providers.contains(where: { $0.id == id }) else { return }
+        if enabled && !settings.enabledProviderIDs.contains(id) {
+            settings.enabledProviderIDs.append(id)
+        } else if !enabled {
+            settings.enabledProviderIDs.removeAll { $0 == id }
+        }
     }
 
-    /// Shows or hides `limit` in the dropdown. Other stored hidden limits
-    /// stay, whether or not the provider currently delivers them.
-    public func setLimit(_ limit: Limit, shownInDropdown isShown: Bool) {
-        let id = qualifiedID(of: limit)
+    public func setLimit(_ limit: Limit, providerID: String, shownInDropdown isShown: Bool) {
+        let id = limit.qualifiedID(providerID: providerID)
         if isShown {
             settings.hiddenLimits.removeAll { $0 == id }
         } else if !settings.hiddenLimits.contains(id) {
@@ -96,126 +124,119 @@ import os
         }
     }
 
-    /// How the settings name `limit`, one of this provider's.
-    private func qualifiedID(of limit: Limit) -> String {
-        limit.qualifiedID(providerID: provider.id)
-    }
-
-    // MARK: Events
-
-    /// The app has launched: the first query runs at once.
     public func launch() {
-        schedule()
+        guard !hasLaunched else { return }
+        hasLaunched = true
+        reconcileProviders()
     }
 
-    /// The dropdown opened: it renders at the current time, and queries if
-    /// the last attempt is more than a minute old.
     public func dropdownOpened() {
+        selectedTab = .overview
         now = clock()
-        if shouldQueryOnOpen(state, now: now) {
-            query(.dropdown)
+        for provider in enabledProviders where shouldQueryOnOpen(state(for: provider.id), now: now) {
+            query(provider.id)
         }
     }
 
-    /// The Mac woke from sleep: query as soon as the network is up, at the
-    /// latest 30 s from now.
     public func wake() {
-        if isNetworkSatisfied {
-            query(.wake)
-        } else {
-            appLog.info("Woke without network: waiting for it for up to 30 s")
-            wakeDeadline = clock().addingTimeInterval(30)
-            schedule()
+        for provider in enabledProviders {
+            if isNetworkSatisfied {
+                query(provider.id)
+            } else {
+                wakeDeadlines[provider.id] = clock().addingTimeInterval(30)
+                schedule(provider.id)
+            }
         }
     }
 
-    /// The network path changed. When it comes back after a wake or a
-    /// temporary error, the query runs at once.
     public func networkChanged(isSatisfied: Bool) {
         guard isSatisfied != isNetworkSatisfied else { return }
         isNetworkSatisfied = isSatisfied
-        appLog.info("Network path \(isSatisfied ? "satisfied" : "not satisfied", privacy: .public)")
-        if isSatisfied, wakeDeadline != nil || state.lastOutcome == .unavailable {
-            query(.network)
-        }
-    }
-
-    /// A full minute has passed: everything time-dependent re-renders.
-    public func minuteTick() {
-        now = clock()
-    }
-
-    // MARK: Queries
-
-    /// Queries now if the schedule says so, and otherwise arms the timer for
-    /// the next scheduled query.
-    private func schedule() {
-        timer?.cancel()
-        timer = nil
-        guard !state.isQuerying else { return }
-        let now = clock()
-        var next = nextQueryAt(state, interval: settings.refreshInterval, now: now)
-        if let wakeDeadline {
-            next = min(next, wakeDeadline)
-        }
-        guard next > now else {
-            query(.schedule)
-            return
-        }
-        appLog.info("Next query at \(next.formatted(.iso8601), privacy: .public)")
-        timer = Task { [weak self, sleep] in
-            do {
-                try await sleep(next.timeIntervalSince(now))
-            } catch {
-                return
+        guard isSatisfied else { return }
+        for provider in enabledProviders {
+            if wakeDeadlines[provider.id] != nil || state(for: provider.id).lastOutcome == .unavailable {
+                query(provider.id)
             }
-            self?.schedule()
         }
     }
 
-    /// Starts a query unless one runs: a trigger during a query is dropped,
-    /// and the query's end recomputes the next time.
-    private func query(_ trigger: QueryTrigger) {
-        guard !state.isQuerying else {
-            appLog.info("Dropped the \(trigger.rawValue, privacy: .public) trigger: a query is running")
-            return
+    public func minuteTick() { now = clock() }
+
+    private func reconcileProviders() {
+        let enabled = Set(enabledProviders.map(\.id))
+        if case .provider(let id) = selectedTab, !enabled.contains(id) { selectedTab = .overview }
+        for id in states.keys where !enabled.contains(id) {
+            generations[id, default: 0] += 1
+            timers.removeValue(forKey: id)?.cancel()
+            expiryTimers.removeValue(forKey: id)?.cancel()
+            queries[id]?.cancel()
+            wakeDeadlines[id] = nil
+            states[id] = nil
         }
-        appLog.info("Query started by the \(trigger.rawValue, privacy: .public) trigger")
-        state.isQuerying = true
-        wakeDeadline = nil
-        timer?.cancel()
-        timer = nil
-        let startedAt = clock()
-        Task {
+        guard hasLaunched else { return }
+        for provider in enabledProviders where states[provider.id] == nil {
+            states[provider.id] = ProviderState()
+            schedule(provider.id)
+        }
+    }
+
+    private func schedule(_ id: String) {
+        timers.removeValue(forKey: id)?.cancel()
+        guard hasLaunched, settings.enabledProviderIDs.contains(id), queries[id] == nil else { return }
+        let current = clock()
+        var next = nextQueryAt(state(for: id), interval: settings.refreshInterval, now: current)
+        if let deadline = wakeDeadlines[id] { next = min(next, deadline) }
+        guard next > current else { query(id); return }
+        timers[id] = Task { [weak self, sleep] in
+            do { try await sleep(next.timeIntervalSince(current)) } catch { return }
+            guard !Task.isCancelled else { return }
+            self?.schedule(id)
+        }
+    }
+
+    private func query(_ id: String) {
+        guard hasLaunched, settings.enabledProviderIDs.contains(id), queries[id] == nil,
+              let provider = providers.first(where: { $0.id == id }) else { return }
+        now = clock()
+        states[id, default: ProviderState()].isQuerying = true
+        wakeDeadlines[id] = nil
+        timers.removeValue(forKey: id)?.cancel()
+        scheduleExpiry(id)
+        let generation = generations[id, default: 0]
+        queries[id] = Task { [weak self] in
             let result = await provider.fetch()
-            finish(result, startedAt: startedAt)
+            self?.finish(result, providerID: id, generation: generation)
         }
     }
 
-    /// Records the result (§6.4) and recomputes the next time.
-    private func finish(_ result: FetchResult, startedAt: Date) {
-        let finishedAt = clock()
-        state.record(result, finishedAt: finishedAt)
-        now = finishedAt
-        let seconds = finishedAt.timeIntervalSince(startedAt)
-        appLog.info("Query finished after \(seconds, format: .fixed(precision: 1), privacy: .public) s: \(describe(result), privacy: .public)")
-        schedule()
+    /// A running request must not keep an expired reading visible. This
+    /// display deadline is independent of query completion and retry work.
+    private func scheduleExpiry(_ id: String) {
+        expiryTimers.removeValue(forKey: id)?.cancel()
+        let current = clock()
+        guard let reset = state(for: id).limits?.filter({ $0.resetBehavior == .awaitReading })
+            .compactMap({ $0.window?.resetsAt }).filter({ $0 > current }).min() else { return }
+        expiryTimers[id] = Task { [weak self, expirySleep] in
+            do { try await expirySleep(reset.timeIntervalSince(current)) } catch { return }
+            guard !Task.isCancelled, let self else { return }
+            now = clock()
+            scheduleExpiry(id)
+        }
     }
-}
 
-/// What started a query, for the log.
-private nonisolated enum QueryTrigger: String {
-    /// Launch, a scheduled time, or a wake's 30 s deadline.
-    case schedule
-    case dropdown
-    case wake
-    case network
-}
-
-private nonisolated func describe(_ result: FetchResult) -> String {
-    switch result {
-    case .limits(let limits): "\(limits.count) limits"
-    case .unavailable: "unavailable"
-    case .problem(let problem): "problem \"\(problem.heading)\""
+    private func finish(_ result: FetchResult, providerID id: String, generation: Int) {
+        queries[id] = nil
+        expiryTimers.removeValue(forKey: id)?.cancel()
+        guard settings.enabledProviderIDs.contains(id) else { return }
+        guard generations[id, default: 0] == generation else { schedule(id); return }
+        now = clock()
+        states[id, default: ProviderState()].record(result, finishedAt: now)
+        if settings.menuBarLimitID == nil, let first = enabledProviders.first,
+           let limit = state(for: first.id).limits?.first {
+            settings.menuBarLimitID = limit.qualifiedID(providerID: first.id)
+            settings.menuBarLimitTitle = "\(first.name) · \(limit.title)"
+        }
+        appLog.info("Query finished for \(id, privacy: .public)")
+        schedule(id)
     }
 }

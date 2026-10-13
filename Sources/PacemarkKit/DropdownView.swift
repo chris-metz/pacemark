@@ -6,7 +6,7 @@ import SwiftUI
 /// Its state lives in the model, because `MenuBarExtra` discards view state
 /// on close.
 public struct DropdownView: View {
-    let model: AppModel
+    @Bindable var model: AppModel
 
     @Environment(\.timeZone) private var timeZone
     @Environment(\.locale) private var locale
@@ -19,19 +19,76 @@ public struct DropdownView: View {
     }
 
     public var body: some View {
-        let display = model.display
         VStack(alignment: .leading, spacing: 12) {
-            content(display.dropdown)
-                .padding(.horizontal, 14)
+            Picker("View", selection: $model.selectedTab) {
+                Text("Overview").tag(DropdownTab.overview)
+                ForEach(model.enabledProviders, id: \.id) { provider in
+                    Text(provider.name).tag(DropdownTab.provider(provider.id))
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 14)
+            VStack(alignment: .leading, spacing: 14) {
+                switch model.selectedTab {
+                case .overview:
+                    if model.overview.isEmpty {
+                        Text("Enable providers in Settings to see your limits.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(model.overview) { entry in overviewRow(entry) }
+                    }
+                case .provider(let id):
+                    content(model.providerDisplay(for: id).dropdown)
+                }
+            }
+            .padding(.horizontal, 14)
             Divider()
-            footer(updateLine: display.updateLine)
+            footer(updateLine: updateLine)
                 .padding(.horizontal, 14)
         }
         .padding(.top, 12)
         .padding(.bottom, 8)
         .frame(width: 300)
-        // MenuBarExtra rebuilds the view on every open.
-        .onAppear { model.dropdownOpened() }
+    }
+
+    private var updateLine: String? {
+        guard case .provider(let id) = model.selectedTab else { return nil }
+        return model.providerDisplay(for: id).updateLine
+    }
+
+    private func overviewRow(_ entry: OverviewEntry) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            if case .limit(let limit) = entry.content {
+                var row = limitDisplay(limit, now: model.now, timeZone: timeZone, locale: locale)
+                let _ = row.title = "\(entry.name) · \(limit.title)"
+                let _ = row.accessibilityText = "\(entry.name), \(row.accessibilityText)"
+                LimitRow(display: row)
+            } else {
+                Text(entry.name).font(.system(size: 13, weight: .semibold))
+                switch entry.content {
+                case .limit: EmptyView()
+                case .noWeeklyLimit: Text("No weekly limit reported").foregroundStyle(.secondary)
+                case .loading: Text("Loading…").foregroundStyle(.secondary)
+                case .noValues: compactProblem("Can't load limits right now", providerID: entry.id)
+                case .problem(let problem): compactProblem(problem.heading, providerID: entry.id)
+                }
+            }
+            if let line = entry.updateLine {
+                Text(line).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        }
+        .font(.system(size: 12))
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func compactProblem(_ message: String, providerID: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(message).foregroundStyle(.secondary)
+            Button("Details") { model.selectedTab = .provider(providerID) }
+                .buttonStyle(.link)
+                .font(.system(size: 11))
+        }
     }
 
     @ViewBuilder private func content(_ content: DropdownContent) -> some View {

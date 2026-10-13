@@ -171,14 +171,14 @@ import Testing
     }
 
     @Test(arguments: ["claude/model:Opus", "other/weekly"])
-    func aPickedLimitMissingFromTheValuesFallsBackToTheFirstLimit(menuBarLimitID: String) {
+    func aPickedLimitMissingFromTheValuesShowsOnlyTheGauge(menuBarLimitID: String) {
         let settings = Settings(menuBarLimitID: menuBarLimitID, menuBarLimitTitle: "Opus limit")
 
         let result = display(succeeded(threeLimits, at: now), providerID: "claude", settings: settings, now: now)
 
         #expect(result.menuBar == MenuBarDisplay(
-            content: .percentage("71%", isRed: false, isDimmed: false),
-            accessibilityText: "Session limit 71%"
+            content: .glyph(),
+            accessibilityText: "Pacemark"
         ))
     }
 

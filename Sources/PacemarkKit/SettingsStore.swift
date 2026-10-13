@@ -14,6 +14,13 @@ public struct SettingsStore {
     public func load() -> Settings {
         let fallback = Settings()
         var settings = fallback
+        if defaults.object(forKey: Key.enabledProviderIDs) == nil {
+            let legacyKeys = [Key.refreshIntervalMinutes, Key.showPercentage, Key.hiddenLimits,
+                              Key.menuBarLimitID, Key.menuBarLimitTitle]
+            let migrated = legacyKeys.contains { defaults.object(forKey: $0) != nil } ? ["claude"] : []
+            defaults.set(migrated, forKey: Key.enabledProviderIDs)
+        }
+        settings.enabledProviderIDs = value(Key.enabledProviderIDs, as: [String].self) ?? []
         if let minutes = value(Key.refreshIntervalMinutes, as: Int.self),
            Settings.refreshIntervalChoices.contains(minutes) {
             settings.refreshIntervalMinutes = minutes
@@ -27,6 +34,7 @@ public struct SettingsStore {
 
     /// Writes every setting.
     public func save(_ settings: Settings) {
+        defaults.set(settings.enabledProviderIDs, forKey: Key.enabledProviderIDs)
         defaults.set(settings.refreshIntervalMinutes, forKey: Key.refreshIntervalMinutes)
         defaults.set(settings.showPercentage, forKey: Key.showPercentage)
         defaults.set(settings.hiddenLimits, forKey: Key.hiddenLimits)
@@ -40,6 +48,7 @@ public struct SettingsStore {
     }
 
     private enum Key {
+        static let enabledProviderIDs = "enabledProviderIDs"
         static let refreshIntervalMinutes = "refreshIntervalMinutes"
         static let showPercentage = "showPercentage"
         static let hiddenLimits = "hiddenLimits"

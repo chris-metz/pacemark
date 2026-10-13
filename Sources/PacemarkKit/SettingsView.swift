@@ -26,11 +26,23 @@ public struct SettingsView: View {
                     }
                 }
             }
+            Section {
+                ForEach(model.providers, id: \.id) { provider in
+                    Toggle(provider.name, isOn: Binding {
+                        model.settings.enabledProviderIDs.contains(provider.id)
+                    } set: { model.setProvider(provider.id, enabled: $0) })
+                    .toggleStyle(.switch)
+                }
+            } header: {
+                Text("Providers")
+            } footer: {
+                Text("Use each provider's installed command-line tool and existing login.")
+            }
             Section("Menu Bar") {
                 menuBarLimit
                 Toggle("Show percentage", isOn: $model.settings.showPercentage)
             }
-            Section("Dropdown") {
+            Section("Provider Tabs") {
                 shownLimits
             }
             Section {
@@ -46,8 +58,7 @@ public struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 440)
-        // The window hugs the content instead of keeping a default height.
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(height: 520)
     }
 
     /// The menu bar limit, picked from the current limits.
@@ -62,21 +73,27 @@ public struct SettingsView: View {
         .disabled(picker.isDisabled)
     }
 
-    /// One switch per current limit, on when the dropdown shows it.
+    /// Visibility applies only to provider tabs, never to Overview.
     @ViewBuilder private var shownLimits: some View {
-        let limits = model.state.limits ?? []
-        if limits.isEmpty {
-            Text("Your limits appear here once Pacemark has loaded them.")
+        if model.enabledProviders.isEmpty {
+            Text("Enable a provider to choose which limits appear in its tab.")
                 .foregroundStyle(.secondary)
-        } else {
+        }
+        ForEach(model.enabledProviders, id: \.id) { provider in
+            let limits = model.state(for: provider.id).limits ?? []
+            if limits.isEmpty {
+                Text("\(provider.name)'s limits appear here once loaded.")
+                    .foregroundStyle(.secondary)
+            }
             ForEach(limits) { limit in
-                Toggle(limit.title, isOn: Binding {
-                    model.isLimitShownInDropdown(limit)
-                } set: { isShown in
-                    model.setLimit(limit, shownInDropdown: isShown)
-                })
+                Toggle("\(provider.name) · \(limit.title)", isOn: Binding {
+                    model.settings.isLimitShownInDropdown(limit, providerID: provider.id)
+                } set: { model.setLimit(limit, providerID: provider.id, shownInDropdown: $0) })
             }
         }
+        Text("Overview always shows each enabled provider's general weekly limit.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
     }
 }
 
@@ -183,4 +200,15 @@ public nonisolated func menuBarLimitPicker(limits: [Limit]?, providerID: String,
         entries.append(.init(id: selection, title: "\(storedTitle) (not available)"))
     }
     return MenuBarLimitPicker(entries: entries, selection: selection, isDisabled: false)
+}
+
+/// Preserves the saved choice even when its provider or window is absent.
+public nonisolated func menuBarLimitPicker(entries current: [MenuBarLimitPicker.Entry], settings: Settings) -> MenuBarLimitPicker {
+    var entries = current
+    let selection = settings.menuBarLimitID ?? ""
+    if !entries.contains(where: { $0.id == selection }) {
+        let title = settings.menuBarLimitTitle.map { "\($0) (not available)" } ?? "—"
+        entries.append(.init(id: selection, title: title))
+    }
+    return MenuBarLimitPicker(entries: entries, selection: selection, isDisabled: current.isEmpty)
 }

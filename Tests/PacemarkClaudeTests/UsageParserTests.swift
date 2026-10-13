@@ -55,7 +55,7 @@ private let sevenDays: TimeInterval = 7 * 24 * 60 * 60
         let limits = try parsedLimits("variant-percent-null.stream.jsonl")
 
         #expect(limits.map(\.id) == ["session", "weekly", "model:Fable"])
-        #expect(limits[1] == Limit(id: "weekly", title: "Weekly limit", windowLength: sevenDays, window: nil))
+        #expect(limits[1] == Limit(id: "weekly", title: "Weekly limit", windowLength: sevenDays, window: nil, isGeneralWeekly: true))
         #expect(limits[0].window?.utilization == 14)
     }
 

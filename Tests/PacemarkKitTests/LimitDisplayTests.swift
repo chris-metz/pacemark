@@ -275,5 +275,5 @@ func session(utilization: Double, resetsAt: String) -> Limit {
 
 func weekly(utilization: Double, resetsAt: String) -> Limit {
     Limit(id: "weekly", title: "Weekly limit", windowLength: 7 * 86400,
-          window: ActiveWindow(utilization: utilization, resetsAt: date(resetsAt)))
+          window: ActiveWindow(utilization: utilization, resetsAt: date(resetsAt)), isGeneralWeekly: true)
 }

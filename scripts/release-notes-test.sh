@@ -6,6 +6,11 @@ NOTES_SCRIPT="$(cd "$(dirname "$0")" && pwd)/release-notes.sh"
 ROOT="$(mktemp -d)"
 trap 'rm -rf "$ROOT"' EXIT
 FAILURES=0
+REQUIREMENTS="Requirements:
+
+- macOS 27
+- For Claude monitoring: Claude Code 2.1.283 or later, installed and logged in
+- For Codex monitoring: Codex CLI 0.162.1, installed and signed in with ChatGPT"
 
 # Keep the user's git config (signing, hooks, templates) out of the repos.
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
@@ -54,18 +59,16 @@ merge "Merge open at login"
 git tag v1.0.0
 merge "Merge readable pace text"
 expect "a merge since the tag becomes a capitalized bullet" \
-    "- Readable pace text" v1.0.0
+    "- Readable pace text
+
+$REQUIREMENTS" v1.0.0
 
 new_repo
 merge "Merge open at login"
 expect "without a tag, the notes of the first release" \
     "First release.
 
-Requirements:
-
-- macOS 27
-- For Claude monitoring: Claude Code 2.1.283 or later, installed and logged in
-- For Codex monitoring: Codex CLI 0.162.1, installed and signed in with ChatGPT"
+$REQUIREMENTS"
 
 new_repo
 git tag v1.0.0
@@ -73,13 +76,17 @@ merge "Merge #30: Open at Login"
 merge "Merge #29: choose the menu bar limit"
 expect "merges with an issue number are listed oldest first" \
     "- Open at Login
-- Choose the menu bar limit" v1.0.0
+- Choose the menu bar limit
+
+$REQUIREMENTS" v1.0.0
 
 new_repo
 git tag v1.0.0
 merge "Merge pull request #35 from chris-metz/reset-line" "fix the reset line"
 expect "a merge from GitHub's merge button uses the PR title" \
-    "- Fix the reset line" v1.0.0
+    "- Fix the reset line
+
+$REQUIREMENTS" v1.0.0
 
 new_repo
 git tag v1.0.0
@@ -92,7 +99,14 @@ git merge --quiet --no-ff main -m "Merge branch 'main' into topic"
 git switch --quiet main
 git merge --quiet --no-ff topic -m "Merge reset line"
 expect "direct commits and merges inside a branch stay out" \
-    "- Reset line" v1.0.0
+    "- Reset line
+
+$REQUIREMENTS" v1.0.0
+
+new_repo
+git tag v1.0.0
+git commit --quiet --allow-empty -m "Fix a typo"
+expect "without new merges, requirements do not create a release" "" v1.0.0
 
 new_repo
 merge "Merge open at login"

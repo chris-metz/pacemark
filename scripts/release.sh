@@ -1,8 +1,8 @@
 #!/bin/sh
 # Builds and publishes a release (docs/adr/0003-signed-releases-via-own-homebrew-tap.md):
 # a signed, notarized DMG on GitHub Releases and the cask in the tap.
-# Everything up to the verified DMG is local and --dry-run stops there, so a
-# failure before the public steps publishes nothing.
+# Packaging and verification finish before publishing; --dry-run stops
+# there. Notarization uploads the build artifacts to Apple.
 # Usage: scripts/release.sh [--dry-run] X.Y.Z
 set -eu
 

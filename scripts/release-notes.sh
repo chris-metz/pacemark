@@ -1,28 +1,32 @@
 #!/bin/sh
 # Prints the release notes for the merges into the current branch since TAG:
-# one bullet per first-parent merge commit, by its title. Without TAG (the
-# first release), "First release." and the requirements, as in the README.
+# one bullet per first-parent merge commit, by its title, followed by the
+# requirements from the README. Without TAG, use "First release." instead.
 # Runs in the current directory's repo.
 # Usage: scripts/release-notes.sh [TAG]
 set -eu
 
 TAG=${1:-}
 
-if [ -z "$TAG" ]; then
+requirements() {
     cat <<'EOF'
-First release.
-
 Requirements:
 
 - macOS 27
 - For Claude monitoring: Claude Code 2.1.283 or later, installed and logged in
 - For Codex monitoring: Codex CLI 0.162.1, installed and signed in with ChatGPT
 EOF
+}
+
+if [ -z "$TAG" ]; then
+    printf 'First release.\n\n'
+    requirements
     exit
 fi
 
 # Listed first, so an unknown TAG stops the script.
 MERGES="$(git rev-list --first-parent --merges --reverse "$TAG..HEAD")"
+[ -n "$MERGES" ] || exit 0
 for COMMIT in $MERGES; do
     TITLE="$(git log -1 --format=%s "$COMMIT")"
     case $TITLE in
@@ -32,3 +36,5 @@ for COMMIT in $MERGES; do
     esac
     printf '%s\n' "$TITLE" | awk '{ print "- " toupper(substr($0, 1, 1)) substr($0, 2) }'
 done
+printf '\n'
+requirements

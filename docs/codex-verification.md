@@ -29,7 +29,7 @@ Codex schedules a query at the observed reset, independently of Claude's existin
 - Display regression tests retain Claude's pace, reset, stale-age, and drawn menu bar behavior.
 - Native `NSHostingView` snapshots cover Overview, Codex/model windows, setup, placeholders, errors/details, loading, temporary failure, missing reset, expiry, all-hidden tabs, stale readings, and Settings in light/dark. All 60 new or changed reference images were visually inspected.
 - The opt-in live check is `PACEMARK_LIVE_CODEX=1 swift test --filter installedCLICompatibility`. It passed against the installed 0.162.1 CLI after verifying the normal account notification behavior.
-- Final `swift build` and full `swift test` passed. The live compatibility test is opt-in and was run separately; the default suite requires no account. The six `scripts/release-notes-test.sh` cases also passed.
+- Final `swift build` and full `swift test` passed. The live compatibility test is opt-in and was run separately; the default suite requires no account. Release preparation also checks that later release notes include the current CLI requirements and that requirements alone cannot create a release without new merges.
 
 ## Review against `f09c192`
 
@@ -41,8 +41,10 @@ No documented-standard violations or remaining actionable findings. One optional
 
 ### Spec
 
-No remaining code findings or unrequested scope. The native interaction check below remains partial.
+No remaining code findings or unrequested scope. Native verification combines the agent's Settings checks and the owner's manual acceptance below.
 
-## Native interaction limitation
+## Native interaction verification
 
-A separate `Pacemark Verification.app` bundle was built and launched with its own preference domain. Two Computer Use attempts were blocked by pending macOS Accessibility and Screen Recording permissions. Therefore actual dropdown reopening, menu bar color/dimming, tab clicks, and Settings scrolling/frontmost behavior have not yet been verified interactively. The snapshots and model tests do not establish `MenuBarExtra` lifecycle behavior. Settings uses a 440 × 520 point native scrolling Form; its lower controls still need an interactive scroll check.
+A separate `Pacemark Verification.app` bundle was built and launched with its own preference domain. Initial Computer Use attempts were blocked by pending macOS Accessibility and Screen Recording permissions. After access was granted, Computer Use verified both provider switches, loaded limit controls, scrolling to the lower controls and footer in the 440 × 520 point native Form, and reopening the app to bring Settings forward.
+
+Computer Use could not reach the menu bar status item, so dropdown reopening, tab clicks, and menu bar color/dimming were left to manual testing. The owner tested the rebuilt app from commit `7fd0f33`, installed in `/Applications/Pacemark.app`, reported that it looked good, and approved the release. The automated snapshots and model tests do not independently establish the real `MenuBarExtra` lifecycle.

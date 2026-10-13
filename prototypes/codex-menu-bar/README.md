@@ -1,16 +1,48 @@
 # Codex menu bar prototype
 
-**Question:** When Claude and Codex are available, does Pacemark show one fixed limit, follow the selected provider tab, or show both providers?
+## Current design review
 
-This is a throwaway HTML simulation of the native SwiftUI app. The three variants use the existing limit-row layout, pace markers, and footer. All numbers are illustrative. Codex has one weekly limit in this sample; actual available limits depend on the account. The agreed Codex connection is recorded below; limit mapping remains under discussion.
+Open [review.html](review.html) for the consolidated, interactive design reflecting all sixteen decisions below. It uses a 300-pixel dropdown, a separate 440-pixel Settings window, and the existing limit-row appearance. The native Swift app remains unchanged. Review and final agreement are still pending.
 
-Open `index.html` directly, or run from this directory:
+Open the file directly, or run from this directory:
 
 ```sh
 python3 -m http.server 8765 --bind 127.0.0.1
 ```
 
-Then open <http://127.0.0.1:8765/>.
+Then open <http://127.0.0.1:8765/review.html>.
+
+Try Overview, the provider tabs, Settings, and the menu bar item. Every reopening selects Overview. Settings lets you enable providers, choose the fixed menu bar limit, hide percentages, and control which rows appear in provider tabs. Scroll within Settings to reach Provider Tabs. All changes are simulated in memory; Reset demo restores the selected scenario.
+
+The Scenario control sits outside the app preview:
+
+| Scenario | What to inspect |
+| --- | --- |
+| Everyday use | Both weekly entries in Overview; all available windows in provider tabs. |
+| First launch | No enabled providers; enabling the first provider selects its first available limit. |
+| Upgrade with saved settings | Claude enabled, Codex disabled, existing selection and preferences retained. |
+| Weekly limit hidden in its tab | Hiding a row does not remove it from Overview or change the menu bar selection. |
+| Pinned provider disabled | Gauge only; re-enabling the provider restores its saved selection. |
+| Codex sign-in required | Compact Overview error; Details opens instructions in the Codex tab. |
+| Codex not installed | Installation instructions without blocking the healthy provider. |
+| Codex still loading | Independent loading state with Claude's readings still available. |
+| Codex unavailable, no data yet | Retry message without inventing utilization. |
+| Codex values out of date | Last valid values and per-provider age; selected stale value is dimmed. |
+| No general weekly limit | Placeholder, even when a model limit is available. |
+| Reset time unavailable | Known utilization remains; reset text and pace marker are unavailable. |
+| Codex window expired | Old utilization is hidden until a current reading arrives. |
+
+All numbers, window labels, and models are illustrative. The sample Codex model row does not promise a particular limit on any account. No real provider, credential, preference, or app process is accessed. The appearance button changes only the simulated native interface. Actual fetching, migration, timers, login detection, and persistence are documented behavior, not implemented by the HTML.
+
+Browser checks covered all thirteen scenario states, tab changes, reopening, Details navigation, independent provider errors, first-provider selection, disabling and restoring a saved pin, percentage visibility, and hiding a weekly row without changing Overview. Light and dark layouts and Settings scrolling were inspected. No browser console errors were observed. Native tests were not run because native sources were not changed.
+
+Saved screenshots: [Overview](screenshots/review-overview.png), [Codex](screenshots/review-codex.png), [Settings](screenshots/review-settings.png), [Provider Tabs settings](screenshots/review-visibility.png), [compact error](screenshots/review-error-overview.png), [error details](screenshots/review-error-details.png), and [dark appearance](screenshots/review-dark.png).
+
+## Earlier concepts
+
+**Original question:** When Claude and Codex are available, does Pacemark show one fixed limit, follow the selected provider tab, or show both providers?
+
+[index.html](index.html) preserves the original three alternatives and intermediate iterations. Use `review.html` for the complete agreed design.
 
 - `?variant=all`: compare all three. A now includes Overview; B and C remain as the original alternatives.
 - `?variant=A`: one fixed limit, initially Claude's session limit, plus the new Overview tab. Overview starts with Claude's weekly limit at 63% and Codex's weekly limit at 20%.
@@ -47,17 +79,19 @@ Switch provider tabs, open the simulated Settings to choose limits, or click the
 
 **Incomplete timing decision:** preserve known Codex utilization when a reset time is missing. Show its percentage and bar with "Reset time unavailable," without a pace marker or pace text. Complete Claude readings keep their existing appearance. The `scenario=no-reset` preview demonstrates 42% utilization with no reset time.
 
-**Expired Codex window decision:** once a previously observed Codex reset time has passed, hide that window's old percentage, bar, and pace until a fresh reading establishes current utilization. Show "Waiting for updated limits." If this is the selected menu bar limit, show only the gauge and retain the selection. A failed refresh still has its own provider status. This differs from a missing reset time accompanying a newly reported percentage, which remains displayable. Claude's existing reset behavior stays unchanged. Add this visual state during the final prototype pass.
+**Expired Codex window decision:** once a previously observed Codex reset time has passed, hide that window's old percentage, bar, and pace until a fresh reading establishes current utilization. Show "Waiting for updated limits." If this is the selected menu bar limit, show only the gauge and retain the selection. A failed refresh still has its own provider status. This differs from a missing reset time accompanying a newly reported percentage, which remains displayable. Claude's existing reset behavior stays unchanged. The consolidated preview includes this state.
 
-**Limit visibility decision:** existing per-limit visibility switches apply only to the provider tabs. Overview always retains the general weekly entry for every enabled provider, including the agreed placeholders and status lines. Rename the Settings section to "Provider Tabs" so the scope is clear. Preserve saved hidden-limit preferences and the independent menu bar selection. Disabling an entire provider still removes it from Overview and removes its provider tab. Add visibility controls during the final prototype pass.
+**Limit visibility decision:** existing per-limit visibility switches apply only to the provider tabs. Overview always retains the general weekly entry for every enabled provider, including the agreed placeholders and status lines. Rename the Settings section to "Provider Tabs" so the scope is clear. Preserve saved hidden-limit preferences and the independent menu bar selection. Disabling an entire provider still removes it from Overview and removes its provider tab. The consolidated preview includes these controls.
 
-**Codex limit scope decision:** the Codex tab shows all reported usage-limit windows, including general limits and limits for individual models. Overview keeps only the general weekly entry. Additional model limits can be selected for the menu bar and hidden in the Codex tab using the same controls as other limits. Credit balances and API spending are separate from usage-limit windows and are outside this addition. Add an illustrative Codex model limit during the final prototype pass.
+**Codex limit scope decision:** the Codex tab shows all reported usage-limit windows, including general limits and limits for individual models. Overview keeps only the general weekly entry. Additional model limits can be selected for the menu bar and hidden in the Codex tab using the same controls as other limits. Credit balances and API spending are separate from usage-limit windows and are outside this addition. The consolidated preview includes an illustrative Codex model limit.
 
-Still to clarify: loading/persistent-problem presentation. The final review will include account scope and implementation defaults; these do not need additional questions unless the user wants a different scope. Group related edge cases and resolve routine implementation choices through engineering research rather than adding interview questions. The original screenshots preserve the alternatives before Overview was proposed.
+**Compact error decision:** Overview shows a short message for an affected provider and a Details link that opens its provider tab. Full setup or recovery instructions belong there. A healthy provider remains usable. Loading and temporary failures without previous values also have their own provider presentation. The menu bar reflects the selected limit's provider; an error elsewhere does not replace its healthy percentage. The consolidated preview includes installation, sign-in, loading, and temporary-failure scenarios.
+
+The user requested this consolidated prototype before closing the discussion. The next step is their visual review, followed by the final written agreement and implementation plan. Account scope is the current Codex CLI's persistent ChatGPT login; this addition does not introduce account management. Routine implementation choices can use the evidence below without extending the interview.
 
 Upgrade evidence: `SettingsStore.load()` reads defaults without writing a first-run marker. Only changing settings persists the five known preference keys: `refreshIntervalMinutes`, `showPercentage`, `hiddenLimits`, `menuBarLimitID`, and `menuBarLimitTitle`. Their presence can identify an earlier configured installation, but their absence cannot distinguish a new installation from an existing user who kept every default. Startup code does not store a previous version. Cache directories are not reliable evidence.
 
-Current error and age behavior, for the next design decisions: `ProviderState.record` in `Sources/PacemarkKit/RefreshSchedule.swift` retains values on temporary failures and clears them on persistent problems. `Display.swift` marks a failed refresh as stale only when the last successful query is more than two refresh intervals old; at the default interval, that means more than ten minutes. Stale values remain in the dropdown, its footer says "Couldn't update · Last update … ago," and the menu bar value is dimmed. Persistent problems replace rows with an actionable message and show a warning triangle in the menu bar. Update age means time since the last successful query, not the latest attempt. `DropdownView.swift` currently renders one footer for its single provider. Overview placement is settled above; Codex outcome mapping and presentation without previous values still need clarification.
+Current error and age behavior: `ProviderState.record` in `Sources/PacemarkKit/RefreshSchedule.swift` retains values on temporary failures and clears them on persistent problems. `Display.swift` marks a failed refresh as stale only when the last successful query is more than two refresh intervals old; at the default interval, that means more than ten minutes. Stale values remain in the dropdown, its footer says "Couldn't update · Last update … ago," and the menu bar value is dimmed. Persistent problems replace rows with an actionable message and show a warning triangle in the menu bar. Update age means time since the last successful query, not the latest attempt. `DropdownView.swift` currently renders one footer for its single provider. The consolidated preview extends that presentation independently per provider, with the agreed exception for expired Codex readings. Exact Codex error classification remains an implementation task.
 
 Codex mapping evidence: `ActiveWindow` in `Sources/PacemarkKit/Provider.swift` currently requires utilization and reset time together. Codex CLI 0.162.1's generated `RateLimitWindow` schema permits `{ "usedPercent": 42, "windowDurationMins": 10080, "resetsAt": null }`; only utilization is required in a present window. The accepted incomplete-timing decision requires representing those facts independently. A known duration identifies a seven-day window; pace additionally needs a valid reset time. `LimitDisplay.swift` currently maps expired or missing windows to 0% and "Starts with your next message." That Claude-specific assumption must not erase known Codex utilization or invent a zero after a Codex reset.
 

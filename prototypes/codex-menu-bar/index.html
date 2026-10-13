@@ -1,0 +1,230 @@
+<!doctype html>
+<!-- Throwaway prototype: compare a fixed menu bar limit, a limit following
+     the selected provider tab, and both providers. Switch with ?variant=A/B/C.
+     This repository is a native Swift app; this HTML only simulates its UI. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pacemark · Three ways to show two providers</title>
+  <style>
+    :root { color-scheme: light; --page:#f6f7f9; --ink:#202127; --muted:#6d717b; --line:#e0e3e8; --blue:#007aff; --orange:#ff9500; --green:#24853c; --panel:rgba(250,250,252,.95); --track:rgba(20,24,38,.10); --panel-text:#25262a; --panel-secondary:#797b82; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--page); color:var(--ink); font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
+    button, select { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible, select:focus-visible { outline:3px solid #4285f4; outline-offset:3px; }
+    button { -webkit-tap-highlight-color:transparent; }
+    .page { max-width:1400px; margin:auto; padding:36px 34px 112px; }
+    .eyebrow { display:flex; align-items:center; gap:9px; color:#656b79; font-size:11px; font-weight:650; letter-spacing:1.3px; text-transform:uppercase; }
+    .app-mark { display:grid; place-items:center; width:25px; height:25px; border-radius:7px; background:#4351c7; color:white; }
+    .app-mark svg { width:18px; height:18px; }
+    .header-line { display:flex; align-items:center; justify-content:space-between; gap:24px; margin:15px 0 7px; }
+    h1 { margin:0; font-size:30px; line-height:1.2; font-weight:650; letter-spacing:-.85px; }
+    .intro { margin:0; max-width:780px; color:var(--muted); font-size:14px; }
+    .theme-button { border:1px solid var(--line); background:white; padding:7px 11px; border-radius:8px; white-space:nowrap; font-size:12px; color:#4d5360; }
+    .scenario { display:flex; align-items:center; gap:13px; margin:25px 0 25px; font-size:12px; color:#626978; }
+    .scenario strong { color:var(--ink); font-weight:600; }
+    .scenario .divider { width:1px; height:13px; background:#d3d7df; }
+    .sample-tag { border:1px solid #dfe3e9; border-radius:5px; padding:2px 6px; color:#717785; font-size:10px; }
+    .variants { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; }
+    .variant { min-width:0; }
+    .variant-head { display:flex; align-items:center; gap:9px; }
+    .letter { display:grid; place-items:center; border:1px solid #d8dde6; border-radius:7px; width:28px; height:28px; background:white; font-size:12px; font-weight:650; }
+    h2 { margin:0; font-size:17px; font-weight:650; letter-spacing:-.2px; }
+    .variant-description { margin:8px 0 15px; min-height:36px; color:var(--muted); font-size:12px; line-height:1.5; }
+    .desktop { position:relative; height:386px; overflow:hidden; border:1px solid #c3cbdc; border-radius:11px; background:radial-gradient(ellipse at 5% 125%,#8498df 0%,transparent 65%),radial-gradient(ellipse at 120% 10%,#d2bbdf 0%,transparent 68%),linear-gradient(130deg,#b9cbe6,#c7cbe8 45%,#acb8df); box-shadow:0 8px 22px #20305c0a; }
+    .desktop::before { content:""; position:absolute; width:460px; height:260px; border:1px solid #ffffff30; border-radius:50%; transform:rotate(-35deg); bottom:-165px; right:-80px; box-shadow:0 -28px 0 #ffffff08,0 -66px 0 #ffffff08; }
+    .menubar { position:relative; z-index:2; display:flex; justify-content:flex-end; align-items:center; gap:9px; padding:0 9px; height:33px; background:#e9eaf1a6; border-bottom:1px solid #969db327; color:#1c2230; }
+    .menu-item { display:flex; align-items:center; gap:4px; height:26px; padding:0 6px; border:0; border-radius:5px; background:rgba(36,43,69,.10); color:inherit; white-space:nowrap; font-size:13px; font-weight:500; font-variant-numeric:tabular-nums; }
+    .menu-item.closed { background:none; }
+    .gauge { display:block; width:17px; height:17px; flex-shrink:0; }
+    .both-values { display:flex; align-items:center; gap:7px; font-size:12px; }
+    .both-values .provider-value { display:flex; gap:4px; }
+    .both-values .provider-name { font-size:11px; font-weight:500; }
+    .both-values .menu-divider { width:1px; height:12px; background:#30374a38; }
+    .system-tray { display:flex; align-items:center; gap:9px; font-size:11px; font-weight:500; flex-shrink:0; }
+    .system-tray svg { width:15px; height:15px; }
+    .dropdown { position:absolute; z-index:3; top:39px; right:12px; width:300px; color:var(--panel-text); background:var(--panel); border:1px solid #ffffffb3; border-radius:10px; box-shadow:0 10px 28px #26345730,0 0 0 .5px #2e35421c;  }
+    .tabs { display:flex; margin:12px 14px 15px; padding:2px; height:27px; border-radius:6px; background:rgba(83,84,103,.10); }
+    .tab { flex:1; border:0; background:none; border-radius:4px; font-size:12px; color:var(--panel-text); line-height:21px; padding:0; }
+    .tab[aria-selected="true"] { background:#fff; box-shadow:0 1px 3px #00000019; font-weight:600; }
+    .rows { padding:0 14px 12px; display:grid; gap:12px; }
+    .limit { display:grid; gap:4px; }
+    .limit-heading, .limit-detail { display:flex; justify-content:space-between; align-items:center; }
+    .limit-heading { font-size:13px; line-height:18px; font-weight:600; }
+    .percent { font-variant-numeric:tabular-nums; }
+    .bar-space { height:12px; display:flex; align-items:center; }
+    .track { position:relative; width:100%; height:6px; border-radius:6px; background:var(--track); }
+    .fill { width:var(--used); height:100%; border-radius:6px; background:var(--fill); }
+    .pace-marker { position:absolute; left:var(--pace); top:-3px; width:2px; height:12px; background:var(--panel-text); box-shadow:0 0 0 1.5px #f7f7fa; }
+    .limit-detail { font-size:11px; line-height:15px; color:var(--panel-secondary); white-space:nowrap; }
+    .pace-under { color:var(--green); }
+    .pace-over { color:#b96b00; }
+    .footer { border-top:1px solid #00000012; padding:8px 14px 9px; font-size:11px; color:var(--panel-secondary); }
+    .footer-actions { display:flex; justify-content:flex-end; gap:13px; margin-top:8px; }
+    .text-button { background:none; border:0; color:inherit; padding:0; font-size:12px; }
+    .desktop-note { position:absolute; left:17px; bottom:14px; right:17px; color:#36436b9c; font-size:10px; letter-spacing:.2px; }
+    .state { margin:14px 0 0; padding:0 1px; display:grid; gap:6px; font-size:12px; }
+    .state-line { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+    .state-label { color:#767c87; }
+    .state-value { color:#323744; font-weight:550; text-align:right; }
+    .state-note { border-top:1px solid var(--line); padding-top:10px; margin:10px 0 0; color:#727884; font-size:12px; min-height:44px; }
+    .hint { display:flex; align-items:center; gap:7px; color:#7b818c; margin:28px 0 0; font-size:12px; }
+    .hint svg { width:14px; height:14px; }
+    .switcher { position:fixed; z-index:20; left:50%; bottom:23px; transform:translateX(-50%); display:flex; align-items:center; gap:4px; color:#fafbff; background:#242835f5; border:1px solid #ffffff26; box-shadow:0 8px 24px #18203530; border-radius:13px; padding:7px;  }
+    .switcher button { color:inherit; border:0; border-radius:7px; background:none; font-size:12px; padding:7px 11px; white-space:nowrap; }
+    .switcher button:hover { background:#ffffff14; }
+    .switcher button[aria-pressed="true"] { background:#ffffff21; }
+    .switcher .arrow { font-size:16px; padding:3px 9px; }
+    .switcher-separator { width:1px; height:18px; background:#ffffff26; margin:0 4px; }
+    .switcher-label { min-width:128px; text-align:center; font-size:12px; padding:0 4px; }
+    .single .variants { display:block; max-width:660px; margin:0 auto; }
+    .single .desktop { height:386px; }
+    .single .dropdown { right:92px; }
+    .single .menubar { gap:16px; }
+    .single .variant-description { min-height:0; }
+    .single .state { grid-template-columns:1fr 1fr; gap:30px; }
+    .single .state-line { display:block; }
+    .single .state-value { display:block; text-align:left; margin-top:4px; }
+    .single .state-note { min-height:0; }
+    .single .hint { justify-content:center; margin-top:18px; }
+    .settings { padding:12px 14px; }
+    .settings-title { display:flex; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom:15px; }
+    .settings-row { display:grid; gap:5px; font-size:11px; margin-bottom:12px; color:var(--panel-secondary); }
+    .settings select { width:100%; font-size:12px; padding:5px; border-radius:5px; border:1px solid #c7cbd2; color:#30343b; background:white; }
+    .settings-note { font-size:11px; color:var(--panel-secondary); margin:0; }
+    [data-dark="true"] { --panel:rgba(39,41,48,.96); --track:rgba(255,255,255,.13); --panel-text:#f0f1f5; --panel-secondary:#b0b1ba; --green:#58c271; }
+    [data-dark="true"] .dropdown { border-color:#ffffff20; }
+    [data-dark="true"] .tabs { background:#00000026; }
+    [data-dark="true"] .tab[aria-selected="true"] { background:#666872; }
+    [data-dark="true"] .pace-marker { box-shadow:0 0 0 1.5px #2a2c33; }
+    [data-dark="true"] .pace-over { color:#fbb356; }
+    [data-dark="true"] .footer { border-color:#ffffff19; }
+    [data-dark="true"] .menubar { background:#262a3ea8; color:white; }
+    [data-dark="true"] .menu-item { background:#ffffff20; }
+    [data-dark="true"] .desktop { background:radial-gradient(ellipse at 5% 125%,#4e609d 0%,transparent 65%),radial-gradient(ellipse at 120% 10%,#64567c 0%,transparent 68%),linear-gradient(130deg,#2b344f,#343651 45%,#333d68); border-color:#3b4359; }
+    [data-dark="true"] .desktop-note { color:#ffffff70; }
+    @media(max-width:1060px) { .page { padding:26px 20px 105px; } .variants { gap:14px; } .desktop { height:386px; } .system-tray .wifi { display:none; } .menubar { gap:6px; padding:0 6px; } .dropdown { right:calc(50% - 150px); } }
+    @media(max-width:980px) { .variants { grid-template-columns:1fr; max-width:600px; margin:auto; gap:30px; } .variant-description { min-height:0; } .desktop { height:386px; } .dropdown { right:60px; } .system-tray .wifi { display:block; } .header-line { align-items:flex-start; } .scenario { flex-wrap:wrap; } .state-note { min-height:0; } }
+    @media(max-width:540px) { h1 { font-size:25px; } .page { padding:22px 14px 110px; } .theme-button { font-size:0; } .theme-button::after { content:'◐'; font-size:16px; } .dropdown,.single .dropdown { right:calc(50% - 150px); } .switcher { bottom:12px; gap:0; } .switcher button { padding:7px 8px; } .switcher-label { min-width:108px; } .single .state { grid-template-columns:1fr; gap:6px; } .single .state-line { display:flex; } }
+  </style>
+</head>
+<body>
+  <main class="page" id="page">
+    <div class="eyebrow"><span class="app-mark" id="app-mark"></span>Pacemark <span style="opacity:.4">/</span> Design prototype</div>
+    <div class="header-line"><h1 id="page-title">Same tab. Three menu bars.</h1><button class="theme-button" id="theme">Dark appearance</button></div>
+    <p class="intro">The dropdown opens on Codex. Switch its tabs and watch what happens in the menu bar.</p>
+    <div class="scenario"><span><strong>Claude</strong> · Session limit <strong>71%</strong></span><span class="divider"></span><span><strong>Codex</strong> · Weekly limit <strong>20%</strong></span><span class="sample-tag">Sample values</span></div>
+    <section class="variants" id="variants" aria-label="Menu bar design variants"></section>
+    <p class="hint"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3"><path d="m5 2 10 8-5 1-2 5z"/></svg>Try the provider tabs, the menu bar item, and Settings…</p>
+  </main>
+  <nav class="switcher" aria-label="Prototype variants">
+    <button id="compare">Compare</button><span class="switcher-separator"></span>
+    <button class="arrow" id="previous" aria-label="Previous variant">←</button>
+    <span class="switcher-label" id="switcher-label">All three variants</span>
+    <button class="arrow" id="next" aria-label="Next variant">→</button>
+    <span class="switcher-separator"></span>
+    <button data-variant="A">A</button><button data-variant="B">B</button><button data-variant="C">C</button>
+  </nav>
+  <script>
+    const gauge = '<svg class="gauge" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" aria-hidden="true"><path d="M4 16a8 8 0 1 1 12 0H4Z"/><path d="M10 3v2M4.4 5.5 6 7M2.3 11h2.1M15.6 11h2.1M10 11.2l3.3-4.4"/><circle cx="10" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>';
+    const wifi = '<svg class="wifi" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 7a12 12 0 0 1 16 0M5 10a8 8 0 0 1 10 0M8 13a3 3 0 0 1 4 0"/><circle cx="10" cy="16" r=".5" fill="currentColor"/></svg>';
+    const controls = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="2" y="3" width="16" height="5" rx="2.5"/><circle cx="6" cy="5.5" r="1.2" fill="currentColor"/><rect x="2" y="12" width="16" height="5" rx="2.5"/><circle cx="14" cy="14.5" r="1.2" fill="currentColor"/></svg>';
+    const limits = {
+      claude: [
+        { id:'session', title:'Session limit', used:71, pace:63, reset:'Resets in 1 hr 52 min' },
+        { id:'weekly', title:'Weekly limit', used:63, pace:63, reset:'Resets Wed 03:00' },
+        { id:'fable', title:'Fable limit', used:22, pace:63, reset:'Resets Wed 03:00' }
+      ],
+      codex: [{ id:'weekly', title:'Weekly limit', used:20, pace:35, reset:'Resets Fri 15:00' }]
+    };
+    const names = { claude:'Claude', codex:'Codex' };
+    const variants = {
+      A: { title:'Pin one limit', short:'Fixed limit', description:'Keep one chosen limit in the menu bar, whichever tab you open.', note:'Browsing Codex leaves the chosen Claude limit in view.' },
+      B: { title:'Follow the tab', short:'Follow tab', description:'The menu bar follows the provider you last opened.', note:'Switching tabs also switches what you monitor.' },
+      C: { title:'Show both', short:'Both providers', description:'Keep one limit from each provider visible side by side.', note:'Both values stay visible. This sketch uses one wider menu bar item.' }
+    };
+    const states = Object.fromEntries(Object.keys(variants).map(key => [key, { tab:'codex', open:true, settings:false, fixed:'claude/session', chosen:{ claude:'session',codex:'weekly' } }]));
+    const query = new URLSearchParams(location.search);
+    let current = ['A','B','C'].includes(query.get('variant')) ? query.get('variant') : 'all';
+    let dark = false;
+    const selectedLimit = (provider, id) => limits[provider].find(limit => limit.id === id);
+    function monitored(key) {
+      const state = states[key];
+      if (key === 'A') { const [provider,id] = state.fixed.split('/'); return [{ provider, ...selectedLimit(provider,id) }]; }
+      const providers = key === 'B' ? [state.tab] : ['claude','codex'];
+      return providers.map(provider => ({ provider, ...selectedLimit(provider,state.chosen[provider]) }));
+    }
+    function limitRow(limit) {
+      const difference = limit.used - limit.pace;
+      const paceText = difference === 0 ? 'On pace' : `${Math.abs(difference)}% ${difference > 0 ? 'over' : 'under'} pace`;
+      return `<div class="limit"><div class="limit-heading"><span>${limit.title}</span><span class="percent">${limit.used}%</span></div><div class="bar-space"><div class="track" style="--used:${limit.used}%;--pace:${limit.pace}%;--fill:${difference > 0 ? 'var(--orange)' : 'var(--blue)'}"><div class="fill"></div><span class="pace-marker"></span></div></div><div class="limit-detail"><span>${limit.reset}</span><span class="${difference > 0 ? 'pace-over' : difference < 0 ? 'pace-under' : ''}">${paceText}</span></div></div>`;
+    }
+    function settingsContent(key) {
+      const state = states[key];
+      const allOptions = Object.entries(limits).flatMap(([provider,items]) => items.map(limit => `<option value="${provider}/${limit.id}" ${state.fixed === `${provider}/${limit.id}` ? 'selected' : ''}>${names[provider]} · ${limit.title}</option>`)).join('');
+      const providerSelect = provider => `<label class="settings-row">${names[provider]}<select data-choice="${key}" data-provider="${provider}" aria-label="${names[provider]} menu bar limit for variant ${key}">${limits[provider].map(limit => `<option value="${limit.id}" ${state.chosen[provider] === limit.id ? 'selected' : ''}>${limit.title}</option>`).join('')}</select></label>`;
+      return `<div class="settings"><div class="settings-title">Menu Bar<button class="text-button" data-done="${key}">Done</button></div>${key === 'A' ? `<label class="settings-row">Limit<select data-fixed="${key}" aria-label="Menu bar limit for variant ${key}">${allOptions}</select></label>` : providerSelect('claude') + providerSelect('codex')}<p class="settings-note">${key === 'A' ? 'This limit stays in the menu bar when you switch tabs.' : key === 'B' ? 'Shows the selected limit of the last opened provider.' : 'Shows the selected limit of each provider.'}</p></div>`;
+    }
+    function renderVariant(key) {
+      const variant = variants[key], state = states[key], values = monitored(key);
+      const valueText = values.map(limit => `${names[limit.provider]} · ${limit.title}`).join(' + ');
+      const menuContent = key === 'C' ? `<span class="both-values">${values.map((limit,index) => `${index ? '<span class="menu-divider"></span>' : ''}<span class="provider-value"><span class="provider-name">${names[limit.provider]}</span><span>${limit.used}%</span></span>`).join('')}</span>` : `<span>${values[0].used}%</span>`;
+      const dropdown = state.open ? `<div class="dropdown">${state.settings ? settingsContent(key) : `<div class="tabs" role="tablist" aria-label="Providers for variant ${key}">${['claude','codex'].map(provider => `<button class="tab" role="tab" aria-selected="${state.tab === provider}" data-tab="${provider}" data-key="${key}">${names[provider]}</button>`).join('')}</div><div class="rows" role="tabpanel" aria-label="${names[state.tab]} limits">${limits[state.tab].map(limitRow).join('')}</div><div class="footer">Updated just now<div class="footer-actions"><button class="text-button" data-settings="${key}">Settings…</button><button class="text-button" data-quit="${key}">Quit</button></div></div>`}</div>` : '';
+      const note = key === 'A' ? `Browsing ${names[state.tab]} leaves the chosen ${names[values[0].provider]} limit in view.` : variant.note;
+      return `<article class="variant" data-key="${key}"><div class="variant-head"><span class="letter">${key}</span><h2>${variant.title}</h2></div><p class="variant-description">${variant.description}</p><div class="desktop"><div class="menubar"><button class="menu-item ${state.open ? '' : 'closed'}" data-menu="${key}" aria-label="Toggle Pacemark dropdown for variant ${key}" aria-expanded="${state.open}">${gauge}${menuContent}</button><div class="system-tray">${wifi}${controls}<span>15:42</span></div></div>${dropdown}<div class="desktop-note">${state.open ? 'macOS menu bar · illustrative preview' : 'Click the menu bar item to reopen'}</div></div><div class="state"><div class="state-line"><span class="state-label">Viewing</span><span class="state-value">${state.settings ? 'Settings' : names[state.tab]}</span></div><div class="state-line"><span class="state-label">Monitoring</span><span class="state-value">${key === 'C' ? 'Claude + Codex' : valueText}</span></div></div><p class="state-note">${note}</p></article>`;
+    }
+    function render() {
+      document.getElementById('page').classList.toggle('single',current !== 'all');
+      document.getElementById('page-title').textContent = current === 'all' ? 'Same tab. Three menu bars.' : `${current} — ${variants[current].title}`;
+      document.getElementById('variants').innerHTML = (current === 'all' ? ['A','B','C'] : [current]).map(renderVariant).join('');
+      document.getElementById('switcher-label').textContent = current === 'all' ? 'All three variants' : `${current} · ${variants[current].short}`;
+      document.querySelectorAll('[data-variant]').forEach(button => button.setAttribute('aria-pressed',button.dataset.variant === current));
+      document.getElementById('compare').setAttribute('aria-pressed',current === 'all');
+      document.body.dataset.dark = dark;
+      document.getElementById('theme').textContent = dark ? 'Light appearance' : 'Dark appearance';
+    }
+    function switchVariant(variant) {
+      current = variant;
+      const url = new URL(location.href);
+      url.searchParams.set('variant',variant);
+      history.replaceState(null,'',url);
+      render();
+    }
+    function cycle(direction) {
+      const keys = ['A','B','C'];
+      switchVariant(current === 'all' ? direction > 0 ? 'A' : 'C' : keys[(keys.indexOf(current) + direction + keys.length) % keys.length]);
+    }
+    document.addEventListener('click',event => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      const data = button.dataset;
+      if (data.variant) return switchVariant(data.variant);
+      if (button.id === 'compare') return switchVariant('all');
+      if (button.id === 'previous') return cycle(-1);
+      if (button.id === 'next') return cycle(1);
+      if (button.id === 'theme') dark = !dark;
+      if (data.tab) states[data.key].tab = data.tab;
+      if (data.menu) { states[data.menu].open = !states[data.menu].open; states[data.menu].settings = false; }
+      if (data.settings) states[data.settings].settings = true;
+      if (data.done) states[data.done].settings = false;
+      if (data.quit) states[data.quit].open = false;
+      render();
+    });
+    document.addEventListener('change',event => {
+      const { fixed,choice,provider } = event.target.dataset;
+      if (fixed) states[fixed].fixed = event.target.value;
+      if (choice) states[choice].chosen[provider] = event.target.value;
+      render();
+    });
+    document.addEventListener('keydown',event => {
+      if (event.target.closest('input,textarea,select,[contenteditable="true"]')) return;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); cycle(event.key === 'ArrowRight' ? 1 : -1); }
+    });
+    window.addEventListener('popstate',() => { const value = new URLSearchParams(location.search).get('variant'); current = ['A','B','C'].includes(value) ? value : 'all'; render(); });
+    document.getElementById('app-mark').innerHTML = gauge;
+    render();
+  </script>
+</body>
+</html>

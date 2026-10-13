@@ -12,8 +12,8 @@ python3 -m http.server 8765 --bind 127.0.0.1
 
 Then open <http://127.0.0.1:8765/>.
 
-- `?variant=all`: compare all three; each starts on the Codex tab.
-- `?variant=A`: one fixed limit, initially Claude's session limit.
+- `?variant=all`: compare all three. A now includes Overview; B and C remain as the original alternatives.
+- `?variant=A`: one fixed limit, initially Claude's session limit, plus the new Overview tab. Overview starts with Claude's weekly limit at 63% and Codex's weekly limit at 20%.
 - `?variant=B`: the selected limit of the last opened provider.
 - `?variant=C`: one limit per provider in a single wider menu bar item. This is one possible arrangement for showing both, not a separate settled decision.
 
@@ -21,6 +21,6 @@ Switch provider tabs, open the simulated Settings to choose limits, or click the
 
 **Decision:** the user selected **A — one fixed menu bar limit**. Opening another tab does not change the chosen limit. The existing Swift app remains unchanged. Prototype code and its switcher stay on `prototype/codex-menu-bar` and are not part of the Swift package's source targets.
 
-**Follow-up direction:** add an **Overview** tab (working name) alongside Claude and Codex. It brings together weekly limits from the included providers and is intended as the default view. The fixed menu bar limit remains independent of it.
+**Overview decision:** add an **Overview** tab (working name) alongside Claude and Codex as the default view. It contains only each provider's general weekly limit, one per provider. Model limits with seven-day windows remain in the provider tabs. The fixed menu bar limit remains independent of Overview. A now demonstrates this with the existing bars, pace markers, reset lines, and footer.
 
-Still to clarify: whether Overview includes only each provider's general weekly limit or also model limits with a seven-day window; what happens when a provider has no general weekly limit; and whether the default view is restored on every dropdown open or only at launch. The existing screenshots show the original three alternatives, before Overview was proposed.
+Still to clarify: what happens when a provider has no general weekly limit; whether Overview is restored on every dropdown open or only at launch; and how to show independent update times and errors across providers. The prototype currently starts A on Overview and retains the selected tab when the simulated dropdown reopens; that reopening behavior is not a settled decision. The original screenshots preserve the alternatives before Overview was proposed.

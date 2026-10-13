@@ -38,6 +38,7 @@
     .menubar { position:relative; z-index:2; display:flex; justify-content:flex-end; align-items:center; gap:9px; padding:0 9px; height:33px; background:#e9eaf1a6; border-bottom:1px solid #969db327; color:#1c2230; }
     .menu-item { display:flex; align-items:center; gap:4px; height:26px; padding:0 6px; border:0; border-radius:5px; background:rgba(36,43,69,.10); color:inherit; white-space:nowrap; font-size:13px; font-weight:500; font-variant-numeric:tabular-nums; }
     .menu-item.closed { background:none; }
+    .menu-item.is-stale .gauge, .menu-item.is-stale > span { opacity:.5; }
     .gauge { display:block; width:17px; height:17px; flex-shrink:0; }
     .both-values { display:flex; align-items:center; gap:7px; font-size:12px; }
     .both-values .provider-value { display:flex; gap:4px; }
@@ -59,10 +60,13 @@
     .fill { width:var(--used); height:100%; border-radius:6px; background:var(--fill); }
     .pace-marker { position:absolute; left:var(--pace); top:-3px; width:2px; height:12px; background:var(--panel-text); box-shadow:0 0 0 1.5px #f7f7fa; }
     .limit-detail { font-size:11px; line-height:15px; color:var(--panel-secondary); white-space:nowrap; }
+    .provider-status { margin-top:5px; font-size:11px; line-height:15px; color:var(--panel-secondary); }
     .pace-under { color:var(--green); }
     .pace-over { color:#b96b00; }
     .footer { border-top:1px solid #00000012; padding:8px 14px 9px; font-size:11px; color:var(--panel-secondary); }
     .footer-actions { display:flex; justify-content:flex-end; gap:13px; margin-top:8px; }
+    .overview-footer .footer-actions { margin-top:0; }
+    .footer .provider-status { margin-top:0; }
     .text-button { background:none; border:0; color:inherit; padding:0; font-size:12px; }
     .desktop-note { position:absolute; left:17px; bottom:14px; right:17px; color:#36436b9c; font-size:10px; letter-spacing:.2px; }
     .state { margin:14px 0 0; padding:0 1px; display:grid; gap:6px; font-size:12px; }
@@ -158,7 +162,12 @@
     const query = new URLSearchParams(location.search);
     const freshInstall = query.get('scenario') === 'fresh';
     const noWeekly = query.get('scenario') === 'no-weekly';
-    const sampleScenario = noWeekly ? '<span><strong>Claude</strong> · Session limit <strong>71%</strong></span><span class="divider"></span><span><strong>Codex</strong> · No weekly limit reported</span><span class="sample-tag">Sample values</span>' : document.querySelector('.scenario').innerHTML;
+    const staleCodex = query.get('scenario') === 'stale';
+    const providerStatus = {
+      claude: { text:'Updated just now', stale:false },
+      codex: { text:staleCodex ? "Couldn't update · Last update 20 min ago" : 'Updated just now', stale:staleCodex }
+    };
+    const sampleScenario = noWeekly ? '<span><strong>Claude</strong> · Session limit <strong>71%</strong></span><span class="divider"></span><span><strong>Codex</strong> · No weekly limit reported</span><span class="sample-tag">Sample values</span>' : staleCodex ? '<span><strong>Claude</strong> · Updated just now</span><span class="divider"></span><span><strong>Codex</strong> · Last update 20 min ago</span><span class="sample-tag">Sample values</span>' : document.querySelector('.scenario').innerHTML;
     if (noWeekly) {
       limits.codex = [{ id:'short', title:'5-hour limit', used:20, pace:35, reset:'Resets in 3 hr 15 min' }];
       states.B.chosen.codex = 'short';
@@ -172,6 +181,7 @@
     let dark = false;
     const selectedLimit = (provider, id) => limits[provider].find(limit => limit.id === id);
     const enabledProviders = key => ['claude','codex'].filter(provider => key !== 'A' || states.A.enabled.includes(provider));
+    const statusLine = provider => `<div class="provider-status">${providerStatus[provider].text}</div>`;
     function monitored(key) {
       const state = states[key];
       if (key === 'A') {
@@ -207,14 +217,19 @@
       const rows = state.tab === 'overview'
         ? enabled.map(provider => {
           const weekly = selectedLimit(provider,'weekly');
-          return weekly ? { ...weekly, title:`${names[provider]} · Weekly limit` } : { provider, missingWeekly:true };
+          return weekly ? { ...weekly, provider, title:`${names[provider]} · Weekly limit` } : { provider, missingWeekly:true };
         })
         : limits[state.tab];
+      const rowContent = state.tab === 'overview'
+        ? rows.map(limit => `<div class="provider-entry" data-provider="${limit.provider}">${limitRow(limit)}${statusLine(limit.provider)}</div>`).join('')
+        : rows.map(limitRow).join('');
+      const footerStatus = state.tab === 'overview' || !enabled.length ? '' : key === 'A' ? statusLine(state.tab) : 'Updated just now';
+      const menuIsStale = key === 'A' && values.some(limit => providerStatus[limit.provider].stale);
       const valueText = values.map(limit => `${names[limit.provider]} · ${limit.title}`).join(' + ') || (state.fixed ? 'Pinned provider disabled' : 'No limit selected');
       const menuContent = key === 'C' ? `<span class="both-values">${values.map((limit,index) => `${index ? '<span class="menu-divider"></span>' : ''}<span class="provider-value"><span class="provider-name">${names[limit.provider]}</span><span>${limit.used}%</span></span>`).join('')}</span>` : values.length ? `<span>${values[0].used}%</span>` : '';
-      const dropdown = state.open ? `<div class="dropdown">${state.settings ? settingsContent(key) : `<div class="tabs" role="tablist" aria-label="Providers for variant ${key}">${tabs.map(provider => `<button class="tab" role="tab" aria-selected="${state.tab === provider}" data-tab="${provider}" data-key="${key}">${names[provider]}</button>`).join('')}</div><div class="rows" role="tabpanel" aria-label="${names[state.tab]} limits">${rows.length ? rows.map(limitRow).join('') : '<p class="empty-overview">Enable a provider in Settings.</p>'}</div><div class="footer">${enabled.length ? 'Updated just now' : ''}<div class="footer-actions"><button class="text-button" data-settings="${key}">Settings…</button><button class="text-button" data-quit="${key}">Quit</button></div></div>`}</div>` : '';
+      const dropdown = state.open ? `<div class="dropdown">${state.settings ? settingsContent(key) : `<div class="tabs" role="tablist" aria-label="Providers for variant ${key}">${tabs.map(provider => `<button class="tab" role="tab" aria-selected="${state.tab === provider}" data-tab="${provider}" data-key="${key}">${names[provider]}</button>`).join('')}</div><div class="rows" role="tabpanel" aria-label="${names[state.tab]} limits">${rowContent || '<p class="empty-overview">Enable a provider in Settings.</p>'}</div><div class="footer ${state.tab === 'overview' ? 'overview-footer' : ''}">${footerStatus}<div class="footer-actions"><button class="text-button" data-settings="${key}">Settings…</button><button class="text-button" data-quit="${key}">Quit</button></div></div>`}</div>` : '';
       const note = key === 'A' ? values.length ? `Browsing ${names[state.tab]} leaves the chosen ${names[values[0].provider]} limit in view.` : state.fixed ? 'Your pin is saved. Re-enable its provider or choose another enabled limit.' : enabled.length ? 'A menu bar limit will be chosen when limits arrive.' : 'No providers are enabled. Open Settings to choose which to monitor.' : variant.note;
-      return `<article class="variant" data-key="${key}"><div class="variant-head"><span class="letter">${key}</span><h2>${variant.title}</h2></div><p class="variant-description">${variant.description}</p><div class="desktop"><div class="menubar"><button class="menu-item ${state.open ? '' : 'closed'}" data-menu="${key}" aria-label="Toggle Pacemark dropdown for variant ${key}" aria-expanded="${state.open}">${gauge}${menuContent}</button><div class="system-tray">${wifi}${controls}<span>15:42</span></div></div>${dropdown}<div class="desktop-note">${state.open ? 'macOS menu bar · illustrative preview' : 'Click the menu bar item to reopen'}</div></div><div class="state"><div class="state-line"><span class="state-label">Viewing</span><span class="state-value">${state.settings ? 'Settings' : names[state.tab]}</span></div><div class="state-line"><span class="state-label">Monitoring</span><span class="state-value">${key === 'C' ? 'Claude + Codex' : valueText}</span></div></div><p class="state-note">${note}</p></article>`;
+      return `<article class="variant" data-key="${key}"><div class="variant-head"><span class="letter">${key}</span><h2>${variant.title}</h2></div><p class="variant-description">${variant.description}</p><div class="desktop"><div class="menubar"><button class="menu-item ${state.open ? '' : 'closed'} ${menuIsStale ? 'is-stale' : ''}" data-menu="${key}" aria-label="Toggle Pacemark dropdown for variant ${key}" aria-expanded="${state.open}">${gauge}${menuContent}</button><div class="system-tray">${wifi}${controls}<span>15:42</span></div></div>${dropdown}<div class="desktop-note">${state.open ? 'macOS menu bar · illustrative preview' : 'Click the menu bar item to reopen'}</div></div><div class="state"><div class="state-line"><span class="state-label">Viewing</span><span class="state-value">${state.settings ? 'Settings' : names[state.tab]}</span></div><div class="state-line"><span class="state-label">Monitoring</span><span class="state-value">${key === 'C' ? 'Claude + Codex' : valueText}</span></div></div><p class="state-note">${note}</p></article>`;
     }
     function render() {
       document.getElementById('page').classList.toggle('single',current !== 'all');

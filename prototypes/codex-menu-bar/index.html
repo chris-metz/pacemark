@@ -94,6 +94,13 @@
     .settings-row { display:grid; gap:5px; font-size:11px; margin-bottom:12px; color:var(--panel-secondary); }
     .settings select { width:100%; font-size:12px; padding:5px; border-radius:5px; border:1px solid #c7cbd2; color:#30343b; background:white; }
     .settings-note { font-size:11px; color:var(--panel-secondary); margin:0; }
+    .settings-section-title { font-size:11px; font-weight:600; margin:14px 0 7px; color:var(--panel-secondary); }
+    .provider-option { display:flex; align-items:center; justify-content:space-between; margin:8px 0; font-size:12px; }
+    .provider-toggle { width:30px; height:18px; border:0; padding:2px; border-radius:10px; background:#989ba5; }
+    .provider-toggle[aria-checked="true"] { background:var(--blue); }
+    .provider-toggle::after { content:""; display:block; width:14px; height:14px; border-radius:50%; background:white; box-shadow:0 1px 2px #0002; }
+    .provider-toggle[aria-checked="true"]::after { transform:translateX(12px); }
+    .empty-overview { margin:0; font-size:12px; color:var(--panel-secondary); }
     [data-dark="true"] { --panel:rgba(39,41,48,.96); --track:rgba(255,255,255,.13); --panel-text:#f0f1f5; --panel-secondary:#b0b1ba; --green:#58c271; }
     [data-dark="true"] .dropdown { border-color:#ffffff20; }
     [data-dark="true"] .tabs { background:#00000026; }
@@ -147,13 +154,18 @@
     };
     const states = Object.fromEntries(Object.keys(variants).map(key => [key, { tab:'codex', open:true, settings:false, fixed:'claude/session', chosen:{ claude:'session',codex:'weekly' } }]));
     states.A.tab = 'overview';
+    states.A.enabled = ['claude','codex'];
     const query = new URLSearchParams(location.search);
     let current = ['A','B','C'].includes(query.get('variant')) ? query.get('variant') : 'all';
     let dark = false;
     const selectedLimit = (provider, id) => limits[provider].find(limit => limit.id === id);
+    const enabledProviders = key => ['claude','codex'].filter(provider => key !== 'A' || states.A.enabled.includes(provider));
     function monitored(key) {
       const state = states[key];
-      if (key === 'A') { const [provider,id] = state.fixed.split('/'); return [{ provider, ...selectedLimit(provider,id) }]; }
+      if (key === 'A') {
+        const [provider,id] = state.fixed.split('/');
+        return state.enabled.includes(provider) ? [{ provider, ...selectedLimit(provider,id) }] : [];
+      }
       const providers = key === 'B' ? [state.tab] : ['claude','codex'];
       return providers.map(provider => ({ provider, ...selectedLimit(provider,state.chosen[provider]) }));
     }
@@ -164,20 +176,25 @@
     }
     function settingsContent(key) {
       const state = states[key];
-      const allOptions = Object.entries(limits).flatMap(([provider,items]) => items.map(limit => `<option value="${provider}/${limit.id}" ${state.fixed === `${provider}/${limit.id}` ? 'selected' : ''}>${names[provider]} · ${limit.title}</option>`)).join('');
+      const enabled = enabledProviders(key);
+      const [pinnedProvider,pinnedID] = state.fixed.split('/');
+      const disabledPin = !enabled.includes(pinnedProvider) ? `<option value="${state.fixed}" selected disabled>${names[pinnedProvider]} · ${selectedLimit(pinnedProvider,pinnedID).title} (disabled)</option>` : '';
+      const allOptions = disabledPin + Object.entries(limits).filter(([provider]) => enabled.includes(provider)).flatMap(([provider,items]) => items.map(limit => `<option value="${provider}/${limit.id}" ${state.fixed === `${provider}/${limit.id}` ? 'selected' : ''}>${names[provider]} · ${limit.title}</option>`)).join('');
+      const providerToggles = `<div class="settings-section-title">Providers</div>${['claude','codex'].map(provider => `<div class="provider-option"><span>${names[provider]}</span><button class="provider-toggle" role="switch" aria-label="Enable ${names[provider]}" aria-checked="${enabled.includes(provider)}" data-enable="${provider}" data-key="${key}"></button></div>`).join('')}<div class="settings-section-title">Menu Bar</div>`;
       const providerSelect = provider => `<label class="settings-row">${names[provider]}<select data-choice="${key}" data-provider="${provider}" aria-label="${names[provider]} menu bar limit for variant ${key}">${limits[provider].map(limit => `<option value="${limit.id}" ${state.chosen[provider] === limit.id ? 'selected' : ''}>${limit.title}</option>`).join('')}</select></label>`;
-      return `<div class="settings"><div class="settings-title">Menu Bar<button class="text-button" data-done="${key}">Done</button></div>${key === 'A' ? `<label class="settings-row">Limit<select data-fixed="${key}" aria-label="Menu bar limit for variant ${key}">${allOptions}</select></label>` : providerSelect('claude') + providerSelect('codex')}<p class="settings-note">${key === 'A' ? 'This limit stays in the menu bar when you switch tabs.' : key === 'B' ? 'Shows the selected limit of the last opened provider.' : 'Shows the selected limit of each provider.'}</p></div>`;
+      return `<div class="settings"><div class="settings-title">${key === 'A' ? 'Settings' : 'Menu Bar'}<button class="text-button" data-done="${key}">Done</button></div>${key === 'A' ? `${providerToggles}<label class="settings-row">Limit<select data-fixed="${key}" aria-label="Menu bar limit for variant ${key}" ${enabled.length ? '' : 'disabled'}>${allOptions}</select></label>` : providerSelect('claude') + providerSelect('codex')}<p class="settings-note">${key === 'A' ? 'This limit stays in the menu bar when you switch tabs.' : key === 'B' ? 'Shows the selected limit of the last opened provider.' : 'Shows the selected limit of each provider.'}</p></div>`;
     }
     function renderVariant(key) {
       const variant = variants[key], state = states[key], values = monitored(key);
-      const tabs = key === 'A' ? ['overview','claude','codex'] : ['claude','codex'];
+      const enabled = enabledProviders(key);
+      const tabs = key === 'A' ? ['overview',...enabled] : ['claude','codex'];
       const rows = state.tab === 'overview'
-        ? ['claude','codex'].map(provider => ({ ...selectedLimit(provider,'weekly'), title:`${names[provider]} · Weekly limit` }))
+        ? enabled.map(provider => ({ ...selectedLimit(provider,'weekly'), title:`${names[provider]} · Weekly limit` }))
         : limits[state.tab];
-      const valueText = values.map(limit => `${names[limit.provider]} · ${limit.title}`).join(' + ');
-      const menuContent = key === 'C' ? `<span class="both-values">${values.map((limit,index) => `${index ? '<span class="menu-divider"></span>' : ''}<span class="provider-value"><span class="provider-name">${names[limit.provider]}</span><span>${limit.used}%</span></span>`).join('')}</span>` : `<span>${values[0].used}%</span>`;
-      const dropdown = state.open ? `<div class="dropdown">${state.settings ? settingsContent(key) : `<div class="tabs" role="tablist" aria-label="Providers for variant ${key}">${tabs.map(provider => `<button class="tab" role="tab" aria-selected="${state.tab === provider}" data-tab="${provider}" data-key="${key}">${names[provider]}</button>`).join('')}</div><div class="rows" role="tabpanel" aria-label="${names[state.tab]} limits">${rows.map(limitRow).join('')}</div><div class="footer">Updated just now<div class="footer-actions"><button class="text-button" data-settings="${key}">Settings…</button><button class="text-button" data-quit="${key}">Quit</button></div></div>`}</div>` : '';
-      const note = key === 'A' ? `Browsing ${names[state.tab]} leaves the chosen ${names[values[0].provider]} limit in view.` : variant.note;
+      const valueText = values.map(limit => `${names[limit.provider]} · ${limit.title}`).join(' + ') || 'Pinned provider disabled';
+      const menuContent = key === 'C' ? `<span class="both-values">${values.map((limit,index) => `${index ? '<span class="menu-divider"></span>' : ''}<span class="provider-value"><span class="provider-name">${names[limit.provider]}</span><span>${limit.used}%</span></span>`).join('')}</span>` : values.length ? `<span>${values[0].used}%</span>` : '';
+      const dropdown = state.open ? `<div class="dropdown">${state.settings ? settingsContent(key) : `<div class="tabs" role="tablist" aria-label="Providers for variant ${key}">${tabs.map(provider => `<button class="tab" role="tab" aria-selected="${state.tab === provider}" data-tab="${provider}" data-key="${key}">${names[provider]}</button>`).join('')}</div><div class="rows" role="tabpanel" aria-label="${names[state.tab]} limits">${rows.length ? rows.map(limitRow).join('') : '<p class="empty-overview">Enable a provider in Settings.</p>'}</div><div class="footer">${enabled.length ? 'Updated just now' : ''}<div class="footer-actions"><button class="text-button" data-settings="${key}">Settings…</button><button class="text-button" data-quit="${key}">Quit</button></div></div>`}</div>` : '';
+      const note = key === 'A' ? values.length ? `Browsing ${names[state.tab]} leaves the chosen ${names[values[0].provider]} limit in view.` : 'Preview behavior: keep the stored pin and show only the glyph. This choice is still open.' : variant.note;
       return `<article class="variant" data-key="${key}"><div class="variant-head"><span class="letter">${key}</span><h2>${variant.title}</h2></div><p class="variant-description">${variant.description}</p><div class="desktop"><div class="menubar"><button class="menu-item ${state.open ? '' : 'closed'}" data-menu="${key}" aria-label="Toggle Pacemark dropdown for variant ${key}" aria-expanded="${state.open}">${gauge}${menuContent}</button><div class="system-tray">${wifi}${controls}<span>15:42</span></div></div>${dropdown}<div class="desktop-note">${state.open ? 'macOS menu bar · illustrative preview' : 'Click the menu bar item to reopen'}</div></div><div class="state"><div class="state-line"><span class="state-label">Viewing</span><span class="state-value">${state.settings ? 'Settings' : names[state.tab]}</span></div><div class="state-line"><span class="state-label">Monitoring</span><span class="state-value">${key === 'C' ? 'Claude + Codex' : valueText}</span></div></div><p class="state-note">${note}</p></article>`;
     }
     function render() {
@@ -212,6 +229,11 @@
       if (button.id === 'next') return cycle(1);
       if (button.id === 'theme') dark = !dark;
       if (data.tab) states[data.key].tab = data.tab;
+      if (data.enable) {
+        const state = states[data.key];
+        state.enabled = state.enabled.includes(data.enable) ? state.enabled.filter(provider => provider !== data.enable) : [...state.enabled,data.enable];
+        if (state.tab === data.enable && !state.enabled.includes(data.enable)) state.tab = 'overview';
+      }
       if (data.menu) {
         const state = states[data.menu];
         state.open = !state.open;

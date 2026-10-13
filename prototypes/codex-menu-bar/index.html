@@ -156,6 +156,12 @@
     states.A.tab = 'overview';
     states.A.enabled = ['claude','codex'];
     const query = new URLSearchParams(location.search);
+    const freshInstall = query.get('scenario') === 'fresh';
+    const sampleScenario = document.querySelector('.scenario').innerHTML;
+    if (freshInstall) {
+      states.A.enabled = [];
+      states.A.fixed = null;
+    }
     let current = ['A','B','C'].includes(query.get('variant')) ? query.get('variant') : 'all';
     let dark = false;
     const selectedLimit = (provider, id) => limits[provider].find(limit => limit.id === id);
@@ -163,6 +169,7 @@
     function monitored(key) {
       const state = states[key];
       if (key === 'A') {
+        if (!state.fixed) return [];
         const [provider,id] = state.fixed.split('/');
         return state.enabled.includes(provider) ? [{ provider, ...selectedLimit(provider,id) }] : [];
       }
@@ -177,8 +184,8 @@
     function settingsContent(key) {
       const state = states[key];
       const enabled = enabledProviders(key);
-      const [pinnedProvider,pinnedID] = state.fixed.split('/');
-      const disabledPin = !enabled.includes(pinnedProvider) ? `<option value="${state.fixed}" selected disabled>${names[pinnedProvider]} · ${selectedLimit(pinnedProvider,pinnedID).title} (disabled)</option>` : '';
+      const [pinnedProvider,pinnedID] = state.fixed?.split('/') ?? [];
+      const disabledPin = !state.fixed ? '<option value="" selected disabled>No limit selected</option>' : !enabled.includes(pinnedProvider) ? `<option value="${state.fixed}" selected disabled>${names[pinnedProvider]} · ${selectedLimit(pinnedProvider,pinnedID).title} (disabled)</option>` : '';
       const allOptions = disabledPin + Object.entries(limits).filter(([provider]) => enabled.includes(provider)).flatMap(([provider,items]) => items.map(limit => `<option value="${provider}/${limit.id}" ${state.fixed === `${provider}/${limit.id}` ? 'selected' : ''}>${names[provider]} · ${limit.title}</option>`)).join('');
       const providerToggles = `<div class="settings-section-title">Providers</div>${['claude','codex'].map(provider => `<div class="provider-option"><span>${names[provider]}</span><button class="provider-toggle" role="switch" aria-label="Enable ${names[provider]}" aria-checked="${enabled.includes(provider)}" data-enable="${provider}" data-key="${key}"></button></div>`).join('')}<div class="settings-section-title">Menu Bar</div>`;
       const providerSelect = provider => `<label class="settings-row">${names[provider]}<select data-choice="${key}" data-provider="${provider}" aria-label="${names[provider]} menu bar limit for variant ${key}">${limits[provider].map(limit => `<option value="${limit.id}" ${state.chosen[provider] === limit.id ? 'selected' : ''}>${limit.title}</option>`).join('')}</select></label>`;
@@ -191,15 +198,15 @@
       const rows = state.tab === 'overview'
         ? enabled.map(provider => ({ ...selectedLimit(provider,'weekly'), title:`${names[provider]} · Weekly limit` }))
         : limits[state.tab];
-      const valueText = values.map(limit => `${names[limit.provider]} · ${limit.title}`).join(' + ') || 'Pinned provider disabled';
+      const valueText = values.map(limit => `${names[limit.provider]} · ${limit.title}`).join(' + ') || (state.fixed ? 'Pinned provider disabled' : 'No limit selected');
       const menuContent = key === 'C' ? `<span class="both-values">${values.map((limit,index) => `${index ? '<span class="menu-divider"></span>' : ''}<span class="provider-value"><span class="provider-name">${names[limit.provider]}</span><span>${limit.used}%</span></span>`).join('')}</span>` : values.length ? `<span>${values[0].used}%</span>` : '';
       const dropdown = state.open ? `<div class="dropdown">${state.settings ? settingsContent(key) : `<div class="tabs" role="tablist" aria-label="Providers for variant ${key}">${tabs.map(provider => `<button class="tab" role="tab" aria-selected="${state.tab === provider}" data-tab="${provider}" data-key="${key}">${names[provider]}</button>`).join('')}</div><div class="rows" role="tabpanel" aria-label="${names[state.tab]} limits">${rows.length ? rows.map(limitRow).join('') : '<p class="empty-overview">Enable a provider in Settings.</p>'}</div><div class="footer">${enabled.length ? 'Updated just now' : ''}<div class="footer-actions"><button class="text-button" data-settings="${key}">Settings…</button><button class="text-button" data-quit="${key}">Quit</button></div></div>`}</div>` : '';
-      const note = key === 'A' ? values.length ? `Browsing ${names[state.tab]} leaves the chosen ${names[values[0].provider]} limit in view.` : 'Your pin is saved. Re-enable its provider or choose another enabled limit.' : variant.note;
+      const note = key === 'A' ? values.length ? `Browsing ${names[state.tab]} leaves the chosen ${names[values[0].provider]} limit in view.` : state.fixed ? 'Your pin is saved. Re-enable its provider or choose another enabled limit.' : enabled.length ? 'Choose a menu bar limit in Settings.' : 'No providers are enabled. Open Settings to choose which to monitor.' : variant.note;
       return `<article class="variant" data-key="${key}"><div class="variant-head"><span class="letter">${key}</span><h2>${variant.title}</h2></div><p class="variant-description">${variant.description}</p><div class="desktop"><div class="menubar"><button class="menu-item ${state.open ? '' : 'closed'}" data-menu="${key}" aria-label="Toggle Pacemark dropdown for variant ${key}" aria-expanded="${state.open}">${gauge}${menuContent}</button><div class="system-tray">${wifi}${controls}<span>15:42</span></div></div>${dropdown}<div class="desktop-note">${state.open ? 'macOS menu bar · illustrative preview' : 'Click the menu bar item to reopen'}</div></div><div class="state"><div class="state-line"><span class="state-label">Viewing</span><span class="state-value">${state.settings ? 'Settings' : names[state.tab]}</span></div><div class="state-line"><span class="state-label">Monitoring</span><span class="state-value">${key === 'C' ? 'Claude + Codex' : valueText}</span></div></div><p class="state-note">${note}</p></article>`;
     }
     function render() {
       document.getElementById('page').classList.toggle('single',current !== 'all');
-      document.getElementById('page-title').textContent = current === 'all' ? 'Three menu bar concepts.' : `${current} — ${variants[current].title}`;
+      document.getElementById('page-title').textContent = freshInstall && current === 'A' ? 'A — First launch' : current === 'all' ? 'Three menu bar concepts.' : `${current} — ${variants[current].title}`;
       document.querySelector('.intro').textContent = current === 'A' ? 'Every opening starts on Overview. The menu bar keeps your chosen limit.' : current === 'all' ? 'A now includes the weekly Overview. B and C remain as the original alternatives.' : 'Switch provider tabs and watch what happens in the menu bar.';
       document.getElementById('variants').innerHTML = (current === 'all' ? ['A','B','C'] : [current]).map(renderVariant).join('');
       document.getElementById('switcher-label').textContent = current === 'all' ? 'All three variants' : `${current} · ${variants[current].short}`;
@@ -207,6 +214,7 @@
       document.getElementById('compare').setAttribute('aria-pressed',current === 'all');
       document.body.dataset.dark = dark;
       document.getElementById('theme').textContent = dark ? 'Light appearance' : 'Dark appearance';
+      document.querySelector('.scenario').innerHTML = freshInstall && current === 'A' ? '<span><strong>Fresh installation</strong> · No saved provider selection</span><span class="sample-tag">Preview</span>' : sampleScenario;
     }
     function switchVariant(variant) {
       current = variant;

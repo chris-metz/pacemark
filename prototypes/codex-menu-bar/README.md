@@ -15,6 +15,7 @@ Then open <http://127.0.0.1:8765/>.
 - `?variant=all`: compare all three. A now includes Overview; B and C remain as the original alternatives.
 - `?variant=A`: one fixed limit, initially Claude's session limit, plus the new Overview tab. Overview starts with Claude's weekly limit at 63% and Codex's weekly limit at 20%.
 - `?variant=A&scenario=fresh`: first launch with no providers enabled and no saved menu bar limit. Overview prompts the user to enable a provider in Settings.
+- `?variant=A&scenario=no-weekly`: a successful Codex response contains an illustrative five-hour limit but no general weekly limit. Overview keeps a Codex placeholder; its provider tab shows the available limit.
 - `?variant=B`: the selected limit of the last opened provider.
 - `?variant=C`: one limit per provider in a single wider menu bar item. This is one possible arrangement for showing both, not a separate settled decision.
 
@@ -36,6 +37,12 @@ Switch provider tabs, open the simulated Settings to choose limits, or click the
 
 **Initial menu bar selection decision:** when there is no saved menu bar selection, automatically select the first enabled provider's first available limit once its limits load. For Claude, this is the session limit. The user can change the selection in Settings. Never replace an existing selection, including one belonging to a disabled provider. The fresh-install prototype demonstrates this with immediately available sample limits.
 
-Still to clarify: what happens when a provider has no general weekly limit; and how to show independent update times and errors across providers. The original screenshots preserve the alternatives before Overview was proposed.
+**Missing weekly limit decision:** after a successful response without a general weekly limit, keep that enabled provider in Overview with the text "No weekly limit reported." Show no percentage or bar for that entry. The provider's own tab remains available and shows its reported limits. This is distinct from loading or a failed query, and does not imply zero utilization or unlimited use. Prototype A demonstrates the case with `scenario=no-weekly`.
+
+Still to clarify: how to show independent update times, loading, and errors across providers. The original screenshots preserve the alternatives before Overview was proposed.
 
 Upgrade evidence: `SettingsStore.load()` reads defaults without writing a first-run marker. Only changing settings persists the five known preference keys: `refreshIntervalMinutes`, `showPercentage`, `hiddenLimits`, `menuBarLimitID`, and `menuBarLimitTitle`. Their presence can identify an earlier configured installation, but their absence cannot distinguish a new installation from an existing user who kept every default. Startup code does not store a previous version. Cache directories are not reliable evidence.
+
+Current error and age behavior, for the next design decisions: `ProviderState.record` in `Sources/PacemarkKit/RefreshSchedule.swift` retains values on temporary failures and clears them on persistent problems. `Display.swift` marks a failed refresh as stale only when the last successful query is more than two refresh intervals old; at the default interval, that means more than ten minutes. Stale values remain in the dropdown, its footer says "Couldn't update · Last update … ago," and the menu bar value is dimmed. Persistent problems replace rows with an actionable message and show a warning triangle in the menu bar. Update age means time since the last successful query, not the latest attempt. `DropdownView.swift` currently renders one footer for its single provider. These are existing behaviors; their presentation across multiple providers is not yet settled.
+
+Codex mapping concern still to resolve: `LimitDisplay.swift` currently maps expired or missing windows to 0% and "Starts with your next message." That is a Claude-specific assumption and should not be silently applied to Codex.

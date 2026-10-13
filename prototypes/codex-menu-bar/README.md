@@ -2,7 +2,7 @@
 
 ## Current design review
 
-Open [review.html](review.html) for the consolidated, interactive design reflecting all sixteen decisions below. It uses a 300-pixel dropdown, a separate 440-pixel Settings window, and the existing limit-row appearance. The native Swift app remains unchanged. Review and final agreement are still pending.
+Open [review.html](review.html) for the consolidated, interactive design reflecting all sixteen decisions below. It uses a 300-pixel dropdown, a separate 440-pixel Settings window, and the existing limit-row appearance. The user approved this design on 2026-10-13 after reviewing the consolidated prototype at commit `4f95b3c`. The native Swift app remains unchanged.
 
 Open the file directly, or run from this directory:
 
@@ -57,7 +57,7 @@ Switch provider tabs, open the simulated Settings to choose limits, or click the
 
 **Decision:** the user selected **A — one fixed menu bar limit**. Opening another tab does not change the chosen limit. The existing Swift app remains unchanged. Prototype code and its switcher stay on `prototype/codex-menu-bar` and are not part of the Swift package's source targets.
 
-**Overview decision:** add an **Overview** tab (working name) alongside Claude and Codex as the default view. It contains only each provider's general weekly limit, one per provider. Model limits with seven-day windows remain in the provider tabs. The fixed menu bar limit remains independent of Overview. A now demonstrates this with the existing bars, pace markers, reset lines, and footer.
+**Overview decision:** add an **Overview** tab alongside Claude and Codex as the default view. It contains only each provider's general weekly limit, one per provider. Model limits with seven-day windows remain in the provider tabs. The fixed menu bar limit remains independent of Overview. A now demonstrates this with the existing bars, pace markers, reset lines, and footer.
 
 **Reopening decision:** every opening of the dropdown selects Overview, including after the user inspected a provider tab. This changes only the visible tab; the pinned menu bar limit stays unchanged. Prototype A now demonstrates this when its menu bar item closes and reopens the dropdown.
 
@@ -87,7 +87,48 @@ Switch provider tabs, open the simulated Settings to choose limits, or click the
 
 **Compact error decision:** Overview shows a short message for an affected provider and a Details link that opens its provider tab. Full setup or recovery instructions belong there. A healthy provider remains usable. Loading and temporary failures without previous values also have their own provider presentation. The menu bar reflects the selected limit's provider; an error elsewhere does not replace its healthy percentage. The consolidated preview includes installation, sign-in, loading, and temporary-failure scenarios.
 
-The user requested this consolidated prototype before closing the discussion. The next step is their visual review, followed by the final written agreement and implementation plan. Account scope is the current Codex CLI's persistent ChatGPT login; this addition does not introduce account management. Routine implementation choices can use the evidence below without extending the interview.
+The user approved the consolidated prototype before closing the discussion. Product decisions are settled. Account scope is the current Codex CLI's persistent ChatGPT login; this addition does not introduce account management. The implementation outline below is a handoff from this design review; engineering compatibility checks remain, and native implementation has not started.
+
+## Implementation outline
+
+For example, hiding `claude/weekly` must remove that row from the Claude tab while retaining its Overview entry. If `codex/weekly` is selected for the menu bar and Codex is disabled, the saved selection stays `codex/weekly` and the menu bar shows only the gauge. These are independent settings and display decisions; changing tabs must not rewrite either one.
+
+```text
+Before
+PacemarkApp -> AppModel -> ClaudeProvider
+                |-> one provider state and refresh schedule
+                |-> dropdown and menu bar display
+
+After
+PacemarkApp -> AppModel -> enabled providers
+                |           |-> ClaudeProvider -> Claude CLI
+                |           `-> CodexProvider  -> Codex app-server
+                |-> independent state and schedule per provider
+                |-> Overview and provider tabs
+                `-> one saved menu bar limit
+```
+
+1. **Extend the shared limit model.** In `Sources/PacemarkKit/Provider.swift`, represent known utilization independently of reset time and identify the general weekly limit explicitly. Update `limitDisplay()` in `LimitDisplay.swift` to distinguish incomplete Codex timing, an expired Codex reading, and Claude's inactive window. Preserve existing qualified limit IDs and Claude behavior.
+2. **Add the Codex provider.** Add a separate `Sources/PacemarkCodex/` target and tests in `Package.swift`. Keep binary discovery, the local app-server exchange, authentication classification, response parsing, and setup wording inside it. Normalize all reported usage-limit windows and give them stable IDs. Use the verified general-bucket mapping below; model limits must never stand in for the general weekly entry.
+3. **Extend state, scheduling, and settings together.** Change `AppModel` to own a registry of providers and independent `ProviderState`/refresh work for each enabled provider. Keep one owner of shared settings and one in-flight query per provider. Extend `Settings` and `SettingsStore.load/save` with explicit provider choices and the agreed fresh-install/upgrade migration. Disabling a provider stops its work and rejects late results without erasing the saved menu bar selection. Apply the existing global refresh preference independently to enabled providers. Preserve Claude's scheduling behavior; verify Codex's handling of post-reset queries separately from the existing 65-second reset delay.
+4. **Build the approved native views.** Extend `DropdownView.swift` with Overview and provider tabs, and `SettingsView.swift` with provider switches, the cross-provider limit picker, and Provider Tabs visibility. Keep selected-tab state in `AppModel` and reset it to Overview on every opening. Separate provider displays from the selected menu bar display in `Display.swift`; retain the drawn `MenuBarLabel` image. Register both providers in `Sources/Pacemark/PacemarkApp.swift`.
+5. **Verify and update product documentation.** Cover migration and restart persistence, independent failures and retries, enable/disable races, selection preservation, all Overview placeholders, missing reset times, and expired Codex readings. Use fixture-based Codex protocol tests and retain Claude's regression suite. Add native light/dark snapshots and inspect real `MenuBarExtra` opening and Settings sizing. Update the root `README.md` and `scripts/release-notes.sh` so CLI requirements match the providers a user enables.
+
+The data flow is:
+
+```text
+on launch: load settings, migrate once, query only enabled providers
+on provider result: reject obsolete results, update only that provider
+on limits from the first enabled provider, if no selection is saved: select its first limit
+on menu opening: show Overview; leave the saved menu bar selection alone
+on an observed Codex reset: hide that old reading until current data arrives
+```
+
+The existing Claude query path, complete-reading pace calculation, refresh preference, hidden-limit IDs, menu bar selection, launch-at-login setting, and native app shell remain. The provider adapter and shared representation may need mechanical changes to preserve those behaviors.
+
+Before merging native implementation, validate the Codex protocol against the researched CLI 0.162.1 baseline and establish a supported-version policy. Include fixtures for optional fields, unknown fields, absent or ambiguous windows, malformed responses, setup failures, and available account-identity changes. The prototype does not resolve binary compatibility or prove native window behavior. These are engineering checks, not further product questions.
+
+## Engineering evidence
 
 Upgrade evidence: `SettingsStore.load()` reads defaults without writing a first-run marker. Only changing settings persists the five known preference keys: `refreshIntervalMinutes`, `showPercentage`, `hiddenLimits`, `menuBarLimitID`, and `menuBarLimitTitle`. Their presence can identify an earlier configured installation, but their absence cannot distinguish a new installation from an existing user who kept every default. Startup code does not store a previous version. Cache directories are not reliable evidence.
 

@@ -23,4 +23,6 @@ Switch provider tabs, open the simulated Settings to choose limits, or click the
 
 **Overview decision:** add an **Overview** tab (working name) alongside Claude and Codex as the default view. It contains only each provider's general weekly limit, one per provider. Model limits with seven-day windows remain in the provider tabs. The fixed menu bar limit remains independent of Overview. A now demonstrates this with the existing bars, pace markers, reset lines, and footer.
 
-Still to clarify: what happens when a provider has no general weekly limit; whether Overview is restored on every dropdown open or only at launch; and how to show independent update times and errors across providers. The prototype currently starts A on Overview and retains the selected tab when the simulated dropdown reopens; that reopening behavior is not a settled decision. The original screenshots preserve the alternatives before Overview was proposed.
+**Reopening decision:** every opening of the dropdown selects Overview, including after the user inspected a provider tab. This changes only the visible tab; the pinned menu bar limit stays unchanged. Prototype A now demonstrates this when its menu bar item closes and reopens the dropdown.
+
+Still to clarify: which providers are included; what happens when a provider has no general weekly limit; and how to show independent update times and errors across providers. The original screenshots preserve the alternatives before Overview was proposed.

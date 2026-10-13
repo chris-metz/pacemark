@@ -183,7 +183,7 @@
     function render() {
       document.getElementById('page').classList.toggle('single',current !== 'all');
       document.getElementById('page-title').textContent = current === 'all' ? 'Three menu bar concepts.' : `${current} — ${variants[current].title}`;
-      document.querySelector('.intro').textContent = current === 'A' ? 'Overview brings the weekly limits together. The menu bar keeps your chosen limit.' : current === 'all' ? 'A now includes the weekly Overview. B and C remain as the original alternatives.' : 'Switch provider tabs and watch what happens in the menu bar.';
+      document.querySelector('.intro').textContent = current === 'A' ? 'Every opening starts on Overview. The menu bar keeps your chosen limit.' : current === 'all' ? 'A now includes the weekly Overview. B and C remain as the original alternatives.' : 'Switch provider tabs and watch what happens in the menu bar.';
       document.getElementById('variants').innerHTML = (current === 'all' ? ['A','B','C'] : [current]).map(renderVariant).join('');
       document.getElementById('switcher-label').textContent = current === 'all' ? 'All three variants' : `${current} · ${variants[current].short}`;
       document.querySelectorAll('[data-variant]').forEach(button => button.setAttribute('aria-pressed',button.dataset.variant === current));
@@ -212,7 +212,12 @@
       if (button.id === 'next') return cycle(1);
       if (button.id === 'theme') dark = !dark;
       if (data.tab) states[data.key].tab = data.tab;
-      if (data.menu) { states[data.menu].open = !states[data.menu].open; states[data.menu].settings = false; }
+      if (data.menu) {
+        const state = states[data.menu];
+        state.open = !state.open;
+        state.settings = false;
+        if (data.menu === 'A' && state.open) state.tab = 'overview';
+      }
       if (data.settings) states[data.settings].settings = true;
       if (data.done) states[data.done].settings = false;
       if (data.quit) states[data.quit].open = false;

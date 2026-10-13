@@ -162,12 +162,16 @@
     const query = new URLSearchParams(location.search);
     const freshInstall = query.get('scenario') === 'fresh';
     const noWeekly = query.get('scenario') === 'no-weekly';
+    const noReset = query.get('scenario') === 'no-reset';
     const staleCodex = query.get('scenario') === 'stale';
     const providerStatus = {
       claude: { text:'Updated just now', stale:false },
       codex: { text:staleCodex ? "Couldn't update · Last update 20 min ago" : 'Updated just now', stale:staleCodex }
     };
-    const sampleScenario = noWeekly ? '<span><strong>Claude</strong> · Session limit <strong>71%</strong></span><span class="divider"></span><span><strong>Codex</strong> · No weekly limit reported</span><span class="sample-tag">Sample values</span>' : staleCodex ? '<span><strong>Claude</strong> · Updated just now</span><span class="divider"></span><span><strong>Codex</strong> · Last update 20 min ago</span><span class="sample-tag">Sample values</span>' : document.querySelector('.scenario').innerHTML;
+    const sampleScenario = noReset ? '<span><strong>Claude</strong> · Session limit <strong>71%</strong></span><span class="divider"></span><span><strong>Codex</strong> · Weekly limit <strong>42%</strong> · Reset unknown</span><span class="sample-tag">Sample values</span>' : noWeekly ? '<span><strong>Claude</strong> · Session limit <strong>71%</strong></span><span class="divider"></span><span><strong>Codex</strong> · No weekly limit reported</span><span class="sample-tag">Sample values</span>' : staleCodex ? '<span><strong>Claude</strong> · Updated just now</span><span class="divider"></span><span><strong>Codex</strong> · Last update 20 min ago</span><span class="sample-tag">Sample values</span>' : document.querySelector('.scenario').innerHTML;
+    if (noReset) {
+      limits.codex[0] = { ...limits.codex[0], used:42, pace:null, reset:null };
+    }
     if (noWeekly) {
       limits.codex = [{ id:'short', title:'5-hour limit', used:20, pace:35, reset:'Resets in 3 hr 15 min' }];
       states.B.chosen.codex = 'short';
@@ -196,9 +200,10 @@
       if (limit.missingWeekly) {
         return `<div class="limit missing-weekly"><div class="limit-heading"><span>${names[limit.provider]}</span></div><div class="limit-detail">No weekly limit reported</div></div>`;
       }
-      const difference = limit.used - limit.pace;
-      const paceText = difference === 0 ? 'On pace' : `${Math.abs(difference)}% ${difference > 0 ? 'over' : 'under'} pace`;
-      return `<div class="limit"><div class="limit-heading"><span>${limit.title}</span><span class="percent">${limit.used}%</span></div><div class="bar-space"><div class="track" style="--used:${limit.used}%;--pace:${limit.pace}%;--fill:${difference > 0 ? 'var(--orange)' : 'var(--blue)'}"><div class="fill"></div><span class="pace-marker"></span></div></div><div class="limit-detail"><span>${limit.reset}</span><span class="${difference > 0 ? 'pace-over' : difference < 0 ? 'pace-under' : ''}">${paceText}</span></div></div>`;
+      const hasPace = Number.isFinite(limit.pace);
+      const difference = hasPace ? limit.used - limit.pace : null;
+      const paceText = !hasPace ? '' : difference === 0 ? 'On pace' : `${Math.abs(difference)}% ${difference > 0 ? 'over' : 'under'} pace`;
+      return `<div class="limit"><div class="limit-heading"><span>${limit.title}</span><span class="percent">${limit.used}%</span></div><div class="bar-space"><div class="track" style="--used:${limit.used}%;--pace:${hasPace ? limit.pace : 0}%;--fill:${difference > 0 ? 'var(--orange)' : 'var(--blue)'}"><div class="fill"></div>${hasPace ? '<span class="pace-marker"></span>' : ''}</div></div><div class="limit-detail"><span>${limit.reset ?? 'Reset time unavailable'}</span>${hasPace ? `<span class="${difference > 0 ? 'pace-over' : difference < 0 ? 'pace-under' : ''}">${paceText}</span>` : ''}</div></div>`;
     }
     function settingsContent(key) {
       const state = states[key];

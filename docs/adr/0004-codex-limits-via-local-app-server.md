@@ -1,0 +1,7 @@
+# Codex limits through the installed CLI's local app-server
+
+Pacemark reads Codex subscription limits through the installed Codex CLI's local `app-server` interface, using its existing persistent ChatGPT login. Codex owns credential storage and refresh; Pacemark reads account and rate-limit data without starting a model turn. This follows the CLI integration boundary already used for Claude while giving Codex its own provider implementation.
+
+An embedded sign-in flow was considered, but it would add browser completion, cancellation, and logout behavior to a monitoring app and could affect other clients sharing the Codex login. Users install and sign in through Codex; Pacemark provides setup instructions and queries Codex only after the user enables it. API-key spending, credit balances, and multiple-account management are outside this addition.
+
+The [app-server account methods](https://learn.chatgpt.com/docs/app-server#auth-endpoints) provide the selected interface. The [CLI reference](https://learn.chatgpt.com/docs/cli/reference#codex-app-server) marks it experimental, so supported-version detection and response compatibility need explicit validation. Pacemark must preserve known utilization when timing is incomplete and must wait for a current reading after an observed Codex reset; Claude's existing integration and reset behavior stay unchanged.

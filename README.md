@@ -14,7 +14,7 @@ Requirements:
 
 - macOS 27
 - For Claude monitoring: Claude Code 2.1.283 or later, installed and logged in
-- For Codex monitoring: Codex CLI **0.162.1**, installed with a persistent ChatGPT login (`codex login`)
+- For Codex monitoring: Codex CLI, installed with a persistent ChatGPT login (`codex login`)
 
 ## Choose providers
 
@@ -26,10 +26,10 @@ The menu bar keeps one saved limit, independently of the open tab. Its initial c
 
 Codex readings without reset times retain their percentages, without pace. After an observed Codex reset, Pacemark waits for current data instead of assuming zero. Each provider has its own update age and retry state.
 
-Codex's app-server is experimental. This release supports the tested CLI version **0.162.1**; other versions show setup instructions instead of guessing compatibility. To install that version:
+Codex's app-server is experimental. Pacemark reads it with any installed CLI version and checks each response. If a Codex update changes the interface, Pacemark shows "Can't read Codex limits" until a newer Pacemark release reads it again. To install Codex:
 
 ```sh
-npm install -g @openai/codex@0.162.1
+npm install -g @openai/codex
 codex login
 ```
 
@@ -42,7 +42,7 @@ Requirements:
 - macOS 27
 - Xcode 27
 - For Claude monitoring: Claude Code 2.1.283 or later, installed and logged in
-- For Codex monitoring: Codex CLI **0.162.1**, installed with a persistent ChatGPT login (`codex login`)
+- For Codex monitoring: Codex CLI, installed with a persistent ChatGPT login (`codex login`)
 
 Then run:
 

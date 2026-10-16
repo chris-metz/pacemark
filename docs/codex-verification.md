@@ -4,13 +4,13 @@ Implementation of [#36](https://github.com/chris-metz/pacemark/issues/36), verif
 
 ## Supported CLI policy
 
-This release accepts exactly `codex-cli 0.162.1`. It is a tested supported version, not a claim about the oldest compatible version. Other or unparseable versions receive installation/update instructions. Extend the allowlist only after repeating the protocol and process checks below. Claude retains its existing minimum version and integration.
+Pacemark accepts any installed CLI version and does not run `codex --version`. Compatibility is decided by the responses: an unknown method, invalid parameters, or a response that doesn't decode shows "Can't read Codex limits". The original release accepted exactly `codex-cli 0.162.1`; that allowlist was dropped because it blocked 0.163.0, which answers correctly. Claude retains its existing minimum version and integration.
 
 The [official app-server documentation](https://learn.chatgpt.com/docs/app-server#auth-endpoints) defines the initialization and account-read protocol. The [CLI reference](https://learn.chatgpt.com/docs/cli/reference#codex-app-server) marks app-server experimental. The installed 0.162.1 CLI's `app-server generate-json-schema` output was also inspected. Live compatibility was checked with its persistent ChatGPT login; no credentials, account identity, or live utilization were recorded in fixtures or test logs.
 
 Each query launches a fresh `codex app-server --listen stdio://`, initializes it, reads the account with `refreshToken: false`, reads limits, and reads the account again before accepting the response. No thread or model turn is created. Routine `account/updated` notifications occur during ordinary reads; available identity fields, rather than the notification alone, decide whether to discard a response.
 
-Discovery checks local and Homebrew locations, then the user's interactive login shell. Child environments omit inherited API-key and agent credential overrides. The CLI uses its default persistent login. Custom `CODEX_HOME` locations are not discovered. Shell lookup and the version probe each have a five-second deadline; the complete app-server exchange has a thirty-second deadline and a 2 MiB output ceiling. Cancellation, timeout, and normal completion terminate the process group and await process cleanup. Stderr and account data are not logged.
+Discovery checks local and Homebrew locations, then the user's interactive login shell. Child environments omit inherited API-key and agent credential overrides. The CLI uses its default persistent login. Custom `CODEX_HOME` locations are not discovered. Shell lookup has a five-second deadline; the complete app-server exchange has a thirty-second deadline and a 2 MiB output ceiling. Cancellation, timeout, and normal completion terminate the process group and await process cleanup. Stderr and account data are not logged.
 
 ## Readings and identity
 
@@ -24,11 +24,11 @@ Codex schedules a query at the observed reset, independently of Claude's existin
 
 ## Verification
 
-- Fixture-driven child-process tests exercise the real JSON-RPC transport, general/model windows, unknown fields, missing timing, empty/ambiguous weekly data, malformed data, login/version problems, temporary service failure, account changes, ordinary notifications, timeouts, and cancellation/cleanup.
+- Fixture-driven child-process tests exercise the real JSON-RPC transport, general/model windows, unknown fields, missing timing, empty/ambiguous weekly data, malformed data, login problems, any CLI version, temporary service failure, account changes, ordinary notifications, timeouts, and cancellation/cleanup.
 - Model/settings tests cover migration from each of the five legacy keys, persisted empty choices, first-provider selection, independent work, hidden weekly rows, fixed selection, and obsolete completions.
 - Display regression tests retain Claude's pace, reset, stale-age, and drawn menu bar behavior.
 - Native `NSHostingView` snapshots cover Overview, Codex/model windows, setup, placeholders, errors/details, loading, temporary failure, missing reset, expiry, all-hidden tabs, stale readings, and Settings in light/dark. All 60 new or changed reference images were visually inspected.
-- The opt-in live check is `PACEMARK_LIVE_CODEX=1 swift test --filter installedCLICompatibility`. It passed against the installed 0.162.1 CLI after verifying the normal account notification behavior.
+- The opt-in live check is `PACEMARK_LIVE_CODEX=1 swift test --filter installedCLICompatibility`. It passed against the installed 0.162.1 CLI after verifying the normal account notification behavior. After the version gate was dropped, it passed against 0.163.0 on 2026-10-16.
 - Final `swift build` and full `swift test` passed. The live compatibility test is opt-in and was run separately; the default suite requires no account. Release preparation also checks that later release notes include the current CLI requirements and that requirements alone cannot create a release without new merges.
 
 ## Review against `f09c192`

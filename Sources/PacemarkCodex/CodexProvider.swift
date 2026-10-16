@@ -28,14 +28,9 @@ public nonisolated struct CodexProvider: Provider {
             guard let binary = located, FileManager.default.isExecutableFile(atPath: binary.path) else {
                 return .problem(.codexNotFound)
             }
-            let environment = CodexLocator.environment(homeDirectory: homeDirectory, binary: binary)
-            let version = try await CodexProcess.output(executable: binary, arguments: ["--version"],
-                directory: homeDirectory, environment: environment, timeout: .seconds(5))
-            guard version.trimmingCharacters(in: .whitespacesAndNewlines) == "codex-cli 0.162.1" else {
-                return .problem(.codexVersion)
-            }
+            // Any CLI version may answer; only an incompatible response is a problem.
             let child = try CodexProcess(executable: binary, arguments: ["app-server", "--listen", "stdio://"],
-                                         directory: homeDirectory, environment: environment)
+                directory: homeDirectory, environment: CodexLocator.environment(homeDirectory: homeDirectory, binary: binary))
             return try await child.perform(timeout: timeout) {
                 var rpc = CodexExchange(child)
                 _ = try await rpc.request("initialize", id: 1,
@@ -101,10 +96,7 @@ nonisolated extension Problem {
         link: ProblemLink(title: "Install Codex", url: URL(string: "https://learn.chatgpt.com/docs/cli")!))
     static let codexLogin = Problem(heading: "Sign in to Codex with ChatGPT",
         message: "Run `codex login` in Terminal and sign in with ChatGPT. Pacemark needs the CLI's persistent ChatGPT login.", link: nil)
-    static let codexVersion = Problem(heading: "Unsupported Codex CLI version",
-        message: "This Pacemark version supports Codex CLI 0.162.1. Install it with `npm install -g @openai/codex@0.162.1`, or check for a newer Pacemark release.",
-        link: ProblemLink(title: "Pacemark releases", url: URL(string: "https://github.com/chris-metz/pacemark/releases")!))
     static let codexResponse = Problem(heading: "Can't read Codex limits",
-        message: "Codex returned an incompatible response. Check for a newer Pacemark release and use a supported Codex CLI version.",
+        message: "Codex returned a response Pacemark can't read. Update the Codex CLI, or check for a newer Pacemark release.",
         link: ProblemLink(title: "Pacemark releases", url: URL(string: "https://github.com/chris-metz/pacemark/releases")!))
 }

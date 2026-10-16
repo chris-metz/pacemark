@@ -7,7 +7,7 @@ nonisolated enum CodexError: Error {
     case rpc(code: Int, message: String)
 }
 
-/// One bounded, cancellable child process. Both the CLI probe and the
+/// One bounded, cancellable child process. Both the shell lookup and the
 /// app-server use it. No account data or subprocess stderr is logged.
 nonisolated final class CodexProcess: Sendable {
     private let process: Process

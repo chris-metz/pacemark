@@ -105,10 +105,15 @@ extension CodexProviderTests {
         #expect(await cli.provider.fetch() == .problem(.codexLogin))
     }
 
-    @Test(arguments: ["codex-cli 0.161.0", "codex-cli 0.163.0", "unknown version"])
-    func untestedVersionsHaveAnActionableMessage(version: String) async throws {
+    @Test(arguments: ["codex-cli 0.161.0", "codex-cli 0.163.0", "codex-cli 1.0.0", "unknown version"])
+    func anyVersionWithACompatibleResponseIsRead(version: String) async throws {
         let cli = try ScriptedCodex(version: version)
-        #expect(await cli.provider.fetch() == .problem(.codexVersion))
+        if case .limits = await cli.provider.fetch() {} else { Issue.record("\(version) should be read") }
+    }
+
+    @Test func anUnknownMethodHasAnIncompatibleResponseMessage() async throws {
+        let cli = try ScriptedCodex(rateError: #"{"code":-32601,"message":"Method not found"}"#)
+        #expect(await cli.provider.fetch() == .problem(.codexResponse))
     }
 
     @Test func aMalformedWindowHasAnIncompatibleResponseMessage() async throws {

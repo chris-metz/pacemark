@@ -14,7 +14,7 @@ Requirements:
 
 - macOS 27
 - For Claude monitoring: Claude Code 2.1.283 or later, installed and logged in
-- For Codex monitoring: Codex CLI 0.162.1, installed and signed in with ChatGPT
+- For Codex monitoring: Codex CLI, installed and signed in with ChatGPT
 EOF
 }
 

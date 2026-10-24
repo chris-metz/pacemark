@@ -12,9 +12,9 @@ The CLI's plan usage was located in the installed bundle: `/usage` in the TUI an
 
 Each query starts `kimi web --no-open --port 0 --log-level warn`. With a log level, the server prints one line, `Kimi server: http://127.0.0.1:<port>/#token=<token>`; without one, a multi-line banner. Port 0 lets the server pick a free port, so a `kimi web` the user runs is unaffected. Pacemark takes the token from this line only, never from Kimi's `server.token` file, keeps it in memory for the query, and sends it as a bearer token. Without it, the route answers 401.
 
-Pacemark reads `userinfo`, `usage` and `userinfo` again, each with `provider=managed:kimi-code`, then stops the server. Answers are envelopes `{"code":0,"data":{"kind":"ok"|"error",…}}`. Without a login (tested with an empty `KIMI_CODE_HOME`), the server still answers 200, with `kind: "error"` and the message "No token for … Run /login to authenticate."; a rejected token adds `status: 401`. Both show "Sign in to Kimi Code". Other errors and 5xx answers are temporary.
+Pacemark reads `userinfo`, `usage` and `userinfo` again, each with `provider=managed:kimi-code`, then stops the server. Answers are envelopes `{"code":0,"data":{"kind":"ok"|"error",…}}`. Without a login (tested with an empty `KIMI_CODE_HOME`), the server still answers 200, with `kind: "error"` and the message "No token for … Run /login to authenticate."; a rejected token adds `status: 401`. Both show "Sign in to Kimi Code". Other errors, 5xx answers and envelopes with a nonzero `code` are temporary; other HTTP statuses from the local server show "Can't read Kimi limits".
 
-Discovery checks local and Homebrew locations, then the user's interactive login shell. With mise, the shell resolves `kimi` to a Node script next to `node`, so the child's `PATH` starts with the unresolved binary's directory. The child environment contains only `HOME`, `USER`, `PATH` and `KIMI_DISABLE_TELEMETRY=1`; API-key, base-URL and home overrides are not inherited, and custom `KIMI_CODE_HOME` locations are not discovered. The whole exchange has one thirty-second deadline and a 2 MiB stdout ceiling; stderr, the token and account data are not logged.
+Discovery checks local and Homebrew locations, then the user's interactive login shell. With mise, the shell resolves `kimi` to a Node script next to `node`, so the child's `PATH` starts with the unresolved binary's directory. The child environment contains only `HOME`, `USER`, `PATH` and `KIMI_DISABLE_TELEMETRY=1`; API-key, base-URL and home overrides are not inherited, and custom `KIMI_CODE_HOME` locations are not discovered. The whole exchange has one thirty-second deadline, plus up to two seconds for a server that ignores SIGTERM, and a 2 MiB stdout ceiling; stderr, the token and account data are not logged.
 
 The server is stopped with SIGTERM. A graceful shutdown took about 0.05 s and left no entry in Kimi's instance registry; SIGKILL follows only after two seconds. Starting the server has side effects in Kimi's data directory: the first start creates the persistent `server.token`, and each start opens Kimi's session and search indexes.
 
@@ -33,6 +33,18 @@ The identity is the account's user ID and email. A change between the two `useri
 - Native `NSHostingView` snapshots cover Overview with a monthly entry, the Kimi tab, a Kimi login problem and Settings with three providers, in light and dark. All 8 new reference images were visually inspected. The existing two-provider references are unchanged.
 - The opt-in live check is `PACEMARK_LIVE_KIMI=1 swift test --filter KimiProviderTests/installedCLICompatibility`. It passed against the installed 2.3.1 CLI in 2.9 s, including discovery through the login shell, and left no server process or instance entry behind.
 - `swift build`, the full `swift test` and `scripts/release-notes-test.sh` passed.
+
+## Deviations from #37
+
+- GLOSSARY has no separate "Kimi's limits" section. The glossary holds terms only, and the one Kimi-specific fact belongs to the new term **Monthly limit**.
+- No fixture with string ratios: the local server's envelope already normalizes `usedRatio` to a number, so a string would mean an incompatible interface.
+- Limits follow the fixed order of Kimi's own `/usage` view (5-hour, weekly, monthly), not the JSON key order, which the server builds in that same order.
+- The server is stopped with SIGTERM and a two-second grace before SIGKILL, so Kimi can flush its indexes.
+- The Settings note under Provider Tabs now reads "Overview always shows each enabled provider's weekly or monthly limit." It still fits on one line.
+
+## Review against `f5933d6`
+
+Standards and Spec were reviewed by separate agents. Fixed: the Settings note still said Overview shows only the weekly limit; names that used the glossary's avoided words (`KimiUsage.swift`, `usages()`, `usage.json`) now follow Codex's `limits`; the error mapping that appeared twice in `KimiProvider.fetch()` is one `failure` function, as in `CodexProvider`; the ready-line prefix is no longer a hard-coded length; window lengths sit next to each limit instead of in a separate switch; ADR 0005 now says why the local server token is not an account credential. Kept: the near-copies of `CodexProcess` and `CodexLocator`, as #37 specified; the "No weekly limit reported" text, which #37 kept for Claude and Codex; and the snapshot test's own copy of the login problem, because PacemarkKit's tests cannot import PacemarkKimi.
 
 ## Not yet verified
 

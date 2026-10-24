@@ -5,7 +5,8 @@ import PacemarkKit
 typealias KimiTransport = @Sendable (_ url: URL, _ token: String) async throws -> (status: Int, body: Data)
 
 /// Reads limits through a short-lived `kimi web` server using Kimi Code's
-/// own login. It never starts a model turn or handles Kimi's credentials.
+/// own login. It never starts a model turn or touches the account's
+/// credentials; it only uses the token its own server prints for it.
 public nonisolated struct KimiProvider: Provider {
     public let id = "kimi"
     public let name = "Kimi"
@@ -42,26 +43,26 @@ public nonisolated struct KimiProvider: Provider {
                 let server = KimiServer(origin: origin, token: token, transport: transport)
                 let identity = try await server.identity()
                 do {
-                    let usages = try await server.usages()
+                    let limits = try await server.limits()
                     // Check again before accepting a response from an account
                     // that may have switched while the request was in flight.
                     let current = try await server.identity()
                     guard current == identity else { return .unavailableForAccount(current, discardPrevious: true) }
-                    return .limits(try usages.limits(), identity: identity)
-                } catch KimiError.login {
-                    return .problem(.kimiLogin)
-                } catch KimiError.incompatible {
-                    return .problem(.kimiResponse)
+                    return .limits(limits, identity: identity)
                 } catch {
-                    return .unavailableForAccount(identity)
+                    return Self.failure(error, identity: identity)
                 }
             }
-        } catch KimiError.login {
-            return .problem(.kimiLogin)
-        } catch KimiError.incompatible {
-            return .problem(.kimiResponse)
         } catch {
-            return .unavailable
+            return Self.failure(error, identity: nil)
+        }
+    }
+
+    private static func failure(_ error: any Error, identity: ProviderIdentity?) -> FetchResult {
+        switch error {
+        case KimiError.login: .problem(.kimiLogin)
+        case KimiError.incompatible: .problem(.kimiResponse)
+        default: identity.map { .unavailableForAccount($0) } ?? .unavailable
         }
     }
 
@@ -84,26 +85,26 @@ private nonisolated struct KimiServer {
     let transport: KimiTransport
 
     func identity() async throws -> ProviderIdentity {
-        guard let info = try await managed("userinfo").userInfo else { throw KimiError.incompatible }
+        guard let info = try await get("userinfo").userInfo else { throw KimiError.incompatible }
         return ProviderIdentity(email: info.email, accountID: info.userId)
     }
 
-    func usages() async throws -> Managed.Usages {
-        guard let quota = try await managed("usage").quota else { throw KimiError.incompatible }
-        return quota.usages
+    func limits() async throws -> [Limit] {
+        guard let windows = try await get("usage").quota?.usages else { throw KimiError.incompatible }
+        return try windows.limits()
     }
 
-    private func managed(_ route: String) async throws -> Managed {
+    private func get(_ route: String) async throws -> AccountResponse {
         let url = origin.appending(path: "api/v1/oauth/\(route)")
             .appending(queryItems: [URLQueryItem(name: "provider", value: "managed:kimi-code")])
         let (status, body) = try await transport(url, token)
         guard status == 200 else { throw (500..<600).contains(status) ? KimiError.unavailable : KimiError.incompatible }
         guard let envelope = try? JSONDecoder().decode(Envelope.self, from: body) else { throw KimiError.incompatible }
         guard envelope.code == 0 else { throw KimiError.unavailable }
-        guard let managed = envelope.data else { throw KimiError.incompatible }
-        switch managed.kind {
-        case "ok": return managed
-        case "error": throw managed.isLoginError ? KimiError.login : KimiError.unavailable
+        guard let response = envelope.data else { throw KimiError.incompatible }
+        switch response.kind {
+        case "ok": return response
+        case "error": throw response.isLoginError ? KimiError.login : KimiError.unavailable
         default: throw KimiError.incompatible
         }
     }

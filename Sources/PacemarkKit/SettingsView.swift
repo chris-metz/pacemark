@@ -91,7 +91,7 @@ public struct SettingsView: View {
                 } set: { model.setLimit(limit, providerID: provider.id, shownInDropdown: $0) })
             }
         }
-        Text("Overview always shows each enabled provider's general weekly limit.")
+        Text("Overview always shows each enabled provider's weekly or monthly limit.")
             .font(.footnote)
             .foregroundStyle(.secondary)
     }

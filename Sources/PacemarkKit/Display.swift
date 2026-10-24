@@ -147,8 +147,8 @@ public nonisolated func overviewEntry(_ state: ProviderState, providerID: String
     case .problem(let problem): content = .problem(problem)
     default:
         if let limits = state.limits {
-            let flagged = limits.filter(\.isOverviewLimit)
-            content = flagged.count == 1 ? .limit(flagged[0]) : .noWeeklyLimit
+            let overviewLimits = limits.filter(\.isOverviewLimit)
+            content = overviewLimits.count == 1 ? .limit(overviewLimits[0]) : .noWeeklyLimit
         } else { content = .noValues }
     }
     return OverviewEntry(id: providerID, name: providerName, content: content,

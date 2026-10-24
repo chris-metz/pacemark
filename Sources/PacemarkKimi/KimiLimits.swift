@@ -1,14 +1,15 @@
 import Foundation
 import PacemarkKit
 
-/// The local server's envelope around one managed-account answer.
+/// The local server's envelope around one answer about the account.
 nonisolated struct Envelope: Decodable, Sendable {
     let code: Int
-    let data: Managed?
+    let data: AccountResponse?
 }
 
-/// Kimi's answer for its managed login: `ok` with a payload, or `error`.
-nonisolated struct Managed: Decodable, Sendable {
+/// Kimi's answer about its own Kimi Code login: `ok` with the account's
+/// profile or plan, or `error`.
+nonisolated struct AccountResponse: Decodable, Sendable {
     let kind: String
     let message: String?
     let status: Int?
@@ -21,17 +22,17 @@ nonisolated struct Managed: Decodable, Sendable {
     }
 
     struct Quota: Decodable, Sendable {
-        let usages: Usages
+        let usages: Windows
     }
 
     /// `monthCode`, the Kimi Code share of `monthTotal`, is not a limit.
-    struct Usages: Decodable, Sendable {
-        let limit5h: Entry?
-        let limit7d: Entry?
-        let monthTotal: Entry?
+    struct Windows: Decodable, Sendable {
+        let limit5h: Window?
+        let limit7d: Window?
+        let monthTotal: Window?
     }
 
-    struct Entry: Decodable, Sendable {
+    struct Window: Decodable, Sendable {
         let usedRatio: Double
         let resetAt: String?
     }
@@ -42,29 +43,27 @@ nonisolated struct Managed: Decodable, Sendable {
     }
 }
 
-nonisolated extension Managed.Usages {
-    /// In Kimi's order. Overview shows the weekly limit, otherwise the
-    /// monthly one.
+nonisolated extension AccountResponse.Windows {
+    /// In the order Kimi's `/usage` shows them. Overview shows the weekly
+    /// limit, otherwise the monthly one.
     func limits() throws -> [Limit] {
         let overviewID = limit7d != nil ? "limit7d" : "monthTotal"
-        let entries = [("limit5h", "5-hour limit", limit5h), ("limit7d", "Weekly limit", limit7d),
-                       ("monthTotal", "Monthly limit", monthTotal)]
-        return try entries.compactMap { id, title, entry in
-            guard let entry else { return nil }
-            guard entry.usedRatio.isFinite, entry.usedRatio >= 0 else { throw KimiError.incompatible }
-            let resetsAt = try entry.resetAt.map { text in
+        let windows: [(id: String, title: String, window: AccountResponse.Window?, length: (Date?) -> TimeInterval?)] = [
+            ("limit5h", "5-hour limit", limit5h, { _ in 5 * 3600 }),
+            ("limit7d", "Weekly limit", limit7d, { _ in 7 * 86400 }),
+            ("monthTotal", "Monthly limit", monthTotal, { $0.map(monthLength(endingAt:)) }),
+        ]
+        return try windows.compactMap { id, title, window, length in
+            guard let window else { return nil }
+            guard window.usedRatio.isFinite, window.usedRatio >= 0 else { throw KimiError.incompatible }
+            let resetsAt = try window.resetAt.map { text in
                 guard let date = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text) else {
                     throw KimiError.incompatible
                 }
                 return date
             }
-            let windowLength: TimeInterval? = switch id {
-            case "limit5h": 5 * 3600
-            case "limit7d": 7 * 86400
-            default: resetsAt.map(monthLength(endingAt:))
-            }
-            return Limit(id: id, title: title, windowLength: windowLength,
-                         window: ActiveWindow(utilization: entry.usedRatio * 100, resetsAt: resetsAt),
+            return Limit(id: id, title: title, windowLength: length(resetsAt),
+                         window: ActiveWindow(utilization: window.usedRatio * 100, resetsAt: resetsAt),
                          resetBehavior: .awaitReading, isOverviewLimit: id == overviewID)
         }
     }

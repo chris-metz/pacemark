@@ -66,10 +66,11 @@ nonisolated final class KimiProcess: Sendable {
     /// Reads stdout until `kimi web` reports where it listens. A child that
     /// exits first has an output Pacemark can't read.
     func readyServer() async throws -> (origin: URL, token: String) {
+        let prefix = "Kimi server: "
         for try await line in lines {
             let text = String(decoding: line, as: UTF8.self)
-            guard text.hasPrefix("Kimi server: ") else { continue }
-            guard let url = URLComponents(string: String(text.dropFirst(13)).trimmingCharacters(in: .whitespaces)),
+            guard text.hasPrefix(prefix) else { continue }
+            guard let url = URLComponents(string: text.dropFirst(prefix.count).trimmingCharacters(in: .whitespaces)),
                   url.scheme == "http", let host = url.host, let port = url.port,
                   let token = url.fragment?.split(separator: "=", maxSplits: 1),
                   token.count == 2, token[0] == "token", !token[1].isEmpty else { throw KimiError.incompatible }

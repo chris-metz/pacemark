@@ -38,7 +38,7 @@ nonisolated final class ScriptedKimi: Sendable {
 
     let directory: URL
     let executable: URL
-    private let answers: Mutex<(usage: (Int, String), userinfo: [(Int, String)], requests: [String])>
+    private let answers: Mutex<(limits: (Int, String), userinfo: [(Int, String)], requests: [String])>
 
     var provider: KimiProvider {
         KimiProvider(executable: executable, homeDirectory: directory, timeout: .seconds(2), transport: { [self] url, token in
@@ -49,12 +49,12 @@ nonisolated final class ScriptedKimi: Sendable {
     var requests: [String] { answers.withLock { $0.requests } }
 
     /// `behavior` replaces printing the ready line and waiting for SIGTERM.
-    init(usage: String? = nil, usageStatus: Int = 200, userinfo: String = ScriptedKimi.userA,
+    init(limits: String? = nil, limitsStatus: Int = 200, userinfo: String = ScriptedKimi.userA,
          userinfoAfter: String? = nil, behavior: String? = nil) throws {
         directory = FileManager.default.temporaryDirectory.appending(path: "pacemark-kimi-\(UUID())")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         executable = directory.appending(path: "kimi")
-        answers = Mutex(((usageStatus, try usage ?? fixture("usage")),
+        answers = Mutex(((limitsStatus, try limits ?? fixture("limits")),
                          [(200, userinfo), (200, userinfoAfter ?? userinfo)], []))
         let script = """
         #!/bin/sh
@@ -72,7 +72,7 @@ nonisolated final class ScriptedKimi: Sendable {
     private func answer(_ url: URL, token: String) -> (status: Int, body: Data) {
         answers.withLock { state in
             state.requests.append("\(url.absoluteString) \(token)")
-            let (status, body) = url.path.hasSuffix("/usage") ? state.usage
+            let (status, body) = url.path.hasSuffix("/usage") ? state.limits
                 : state.userinfo.count > 1 ? state.userinfo.removeFirst() : state.userinfo[0]
             return (status, Data(body.utf8))
         }
@@ -92,7 +92,7 @@ nonisolated func date(_ iso: String) -> Date {
 extension KimiProviderTests {
     @Test(arguments: ["no-weekly", "no-5h", "no-reset", "over-100", "empty"])
     func incompleteAnswersKeepTheirMeaning(fixture name: String) async throws {
-        let cli = try ScriptedKimi(usage: fixture(name))
+        let cli = try ScriptedKimi(limits: fixture(name))
         guard case .limits(let limits, _) = await cli.provider.fetch() else {
             Issue.record("Expected limits for \(name)"); return
         }
@@ -123,8 +123,8 @@ extension KimiProviderTests {
         ("2026-05-31T00:00:00Z", 31.0),  // from 30 April, the last day
     ])
     func theMonthlyWindowIsTheCalendarMonthBeforeTheReset(reset: String, days: Double) async throws {
-        let usage = #"{"code":0,"msg":"success","data":{"kind":"ok","quota":{"usages":{"monthTotal":{"usedRatio":0.1,"resetAt":"\#(reset)"}}}}}"#
-        let cli = try ScriptedKimi(usage: usage)
+        let limits = #"{"code":0,"msg":"success","data":{"kind":"ok","quota":{"usages":{"monthTotal":{"usedRatio":0.1,"resetAt":"\#(reset)"}}}}}"#
+        let cli = try ScriptedKimi(limits: limits)
         guard case .limits(let limits, _) = await cli.provider.fetch() else {
             Issue.record("Expected limits"); return
         }
@@ -141,30 +141,30 @@ extension KimiProviderTests {
     }
 
     @Test func aRejectedLoginAsksToSignIn() async throws {
-        let cli = try ScriptedKimi(usage: fixture("unauthorized"))
+        let cli = try ScriptedKimi(limits: fixture("unauthorized"))
         #expect(await cli.provider.fetch() == .problem(.kimiLogin))
     }
 
     @Test(arguments: ["service-error", "server-error"])
     func serviceFailureRetainsTheIdentity(fixture name: String) async throws {
-        let cli = try ScriptedKimi(usage: fixture(name))
+        let cli = try ScriptedKimi(limits: fixture(name))
         #expect(await cli.provider.fetch() == .unavailableForAccount(Self.userA))
     }
 
     @Test func aServerErrorStatusRetainsTheIdentity() async throws {
-        let cli = try ScriptedKimi(usage: "Bad gateway", usageStatus: 502)
+        let cli = try ScriptedKimi(limits: "Bad gateway", limitsStatus: 502)
         #expect(await cli.provider.fetch() == .unavailableForAccount(Self.userA))
     }
 
     @Test(arguments: ["malformed-reset", "negative-ratio", "unknown-kind", "no-data"])
     func anUnreadableAnswerHasAnIncompatibleResponseMessage(fixture name: String) async throws {
-        let cli = try ScriptedKimi(usage: fixture(name))
+        let cli = try ScriptedKimi(limits: fixture(name))
         #expect(await cli.provider.fetch() == .problem(.kimiResponse))
     }
 
     @Test(arguments: [(404, #"{"message":"Route GET:/api/v1/oauth/usage not found"}"#), (200, "not-json")])
     func aMissingRouteOrNonJSONHasAnIncompatibleResponseMessage(status: Int, body: String) async throws {
-        let cli = try ScriptedKimi(usage: body, usageStatus: status)
+        let cli = try ScriptedKimi(limits: body, limitsStatus: status)
         #expect(await cli.provider.fetch() == .problem(.kimiResponse))
     }
 

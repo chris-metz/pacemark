@@ -13,7 +13,7 @@ import Testing
         }
         #expect(limits.map(\.id) == ["primary", "secondary", "model:model-x/primary"])
         #expect(limits.map { $0.window?.utilization } == [12, 42, 73])
-        #expect(limits.filter(\.isGeneralWeekly).map(\.id) == ["secondary"])
+        #expect(limits.filter(\.isOverviewLimit).map(\.id) == ["secondary"])
         #expect(limits[1].windowLength == 604800)
     }
 }
@@ -79,19 +79,19 @@ extension CodexProviderTests {
         case "unknown-reset":
             #expect(limits.first?.window?.utilization == 42)
             #expect(limits.first?.window?.resetsAt == nil)
-            #expect(limits.first?.isGeneralWeekly == true)
+            #expect(limits.first?.isOverviewLimit == true)
         case "unknown-duration":
             #expect(limits.first?.windowLength == nil)
-            #expect(limits.first?.isGeneralWeekly == false)
+            #expect(limits.first?.isOverviewLimit == false)
         case "weekly-primary":
-            #expect(limits.filter(\.isGeneralWeekly).map(\.id) == ["primary"])
+            #expect(limits.filter(\.isOverviewLimit).map(\.id) == ["primary"])
             #expect(limits.first?.windowLength == 600000)
         case "ambiguous-weekly":
             #expect(limits.count == 2)
-            #expect(limits.filter(\.isGeneralWeekly).isEmpty)
+            #expect(limits.filter(\.isOverviewLimit).isEmpty)
         case "no-general", "legacy-model":
             #expect(limits.map(\.id) == ["model:model-x/primary"])
-            #expect(limits.filter(\.isGeneralWeekly).isEmpty)
+            #expect(limits.filter(\.isOverviewLimit).isEmpty)
         case "expired":
             let row = limitDisplay(try #require(limits.first), now: Date(timeIntervalSince1970: 2000))
             #expect(row.state == .waitingForUpdate)

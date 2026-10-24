@@ -5,7 +5,7 @@ A macOS menu bar app that shows at a glance how much of the usage limits of your
 ## Providers and limits
 
 **Provider**:
-An AI service whose limits Pacemark can show, such as Claude or Codex.
+An AI service whose limits Pacemark can show, such as Claude, Codex or Kimi.
 _Avoid_: vendor, service, account
 
 **Enabled provider**:
@@ -17,12 +17,16 @@ A provider's usage cap measured over a window. Its utilization can be known even
 _Avoid_: quota, budget, allowance
 
 **Window**:
-The span of time over which a limit is measured (e.g. 5 hours or 7 days) before it resets.
+The span of time over which a limit is measured (e.g. 5 hours, 7 days or a calendar month) before it resets.
 _Avoid_: cycle, period, interval
 
 **Weekly limit**:
 A provider's general limit with a 7-day window. For Claude, it counts use across all models.
 _Avoid_: weekly quota
+
+**Monthly limit**:
+A provider's general limit whose window is the calendar month that ends at its reset time. For Kimi, it counts use of Kimi and Kimi Code together.
+_Avoid_: monthly quota, 30-day limit
 
 **Model limit**:
 A provider's limit that counts only the use of one particular model. Claude's model limits have 7-day windows; Codex reports the window for each limit.
@@ -45,7 +49,7 @@ The single limit, from any provider, whose utilization the menu bar item shows i
 _Avoid_: headline limit, main limit, primary limit
 
 **Overview**:
-A shared view of enabled providers, with one entry per provider showing its general weekly limit when reported. Model limits belong to the individual provider tabs.
+A shared view of enabled providers, with one entry per provider showing its weekly limit, or its monthly limit when it reports no weekly one. Model limits belong to the individual provider tabs.
 _Avoid_: dashboard, summary
 
 ### Claude's limits

@@ -15,6 +15,7 @@ Requirements:
 - macOS 27
 - For Claude monitoring: Claude Code 2.1.283 or later, installed and logged in
 - For Codex monitoring: Codex CLI, installed and signed in with ChatGPT
+- For Kimi monitoring: Kimi Code CLI, installed and logged in
 EOF
 }
 

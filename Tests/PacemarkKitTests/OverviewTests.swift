@@ -5,7 +5,7 @@ import Testing
 @Suite struct OverviewTests {
     @Test func overviewKeepsAHiddenGeneralWeeklyLimitAndExcludesModelLimits() {
         let weekly = Limit(id: "weekly", title: "Weekly limit", windowLength: 604800,
-                           window: ActiveWindow(utilization: 42, resetsAt: nil), isGeneralWeekly: true)
+                           window: ActiveWindow(utilization: 42, resetsAt: nil), isOverviewLimit: true)
         let model = Limit(id: "model", title: "Model limit", windowLength: 604800,
                           window: ActiveWindow(utilization: 91, resetsAt: nil))
         let state = succeeded([model, weekly], at: now)

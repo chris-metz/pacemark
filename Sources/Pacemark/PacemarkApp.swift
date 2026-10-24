@@ -1,5 +1,6 @@
 import PacemarkClaude
 import PacemarkCodex
+import PacemarkKimi
 import PacemarkKit
 import SwiftUI
 
@@ -12,7 +13,7 @@ struct PacemarkApp: App {
     @State private var openAtLogin = OpenAtLogin(loginItem: MainAppLoginItem(), bundleURL: Bundle.main.bundleURL)
 
     init() {
-        let model = AppModel(providers: [ClaudeProvider(), CodexProvider()], settingsStore: SettingsStore(defaults: .standard))
+        let model = AppModel(providers: [ClaudeProvider(), CodexProvider(), KimiProvider()], settingsStore: SettingsStore(defaults: .standard))
         _model = State(initialValue: model)
         Driver.start(model)
     }

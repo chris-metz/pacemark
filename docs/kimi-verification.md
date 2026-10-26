@@ -33,6 +33,7 @@ The identity is the account's user ID and email. A change between the two `useri
 - Native `NSHostingView` snapshots cover Overview with a monthly entry, the Kimi tab, a Kimi login problem and Settings with three providers, in light and dark. All 8 new reference images were visually inspected. The existing two-provider references are unchanged.
 - The opt-in live check is `PACEMARK_LIVE_KIMI=1 swift test --filter KimiProviderTests/installedCLICompatibility`. It passed against the installed 2.3.1 CLI in 2.9 s, including discovery through the login shell, and left no server process or instance entry behind.
 - `swift build`, the full `swift test` and `scripts/release-notes-test.sh` passed.
+- On 2026-10-26, the branch build at `9051a2e`, installed with `scripts/install.sh`, ran in the real menu bar app with Kimi enabled in Settings. Overview showed the monthly limit, the Kimi tab showed the 5-hour and monthly limits, and the 5-hour limit could be chosen for the menu bar, so the request from the signed app bundle reaches the local server. No `kimi web` process or instance entry was left behind.
 
 ## Deviations from #37
 
@@ -48,6 +49,5 @@ Standards and Spec were reviewed by separate agents. Fixed: the Settings note st
 
 ## Not yet verified
 
-- The real `MenuBarExtra` app with Kimi enabled, including the HTTP request from the signed app bundle. Loopback IP addresses are outside App Transport Security, but only the test runner made the request.
 - The monthly window rule across a real reset: after the next one, the following reset should fall on the same day one month later at 00:00 UTC.
 - A plan that reports a weekly limit; the observed plan reported only the 5-hour and monthly limits.

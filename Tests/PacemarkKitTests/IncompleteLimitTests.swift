@@ -6,7 +6,7 @@ import Testing
     @Test func anExpiredCodexReadingWaitsWithoutInventingZero() {
         let limit = Limit(id: "weekly", title: "Weekly limit", windowLength: 604800,
                           window: ActiveWindow(utilization: 42, resetsAt: Date(timeIntervalSince1970: 1000)),
-                          resetBehavior: .awaitReading, isGeneralWeekly: true)
+                          resetBehavior: .awaitReading, isOverviewLimit: true)
         let result = limitDisplay(limit, now: Date(timeIntervalSince1970: 1000))
         #expect(result.state == .waitingForUpdate)
         #expect(result.percentText.isEmpty)
@@ -31,7 +31,7 @@ import Testing
     @Test func knownUtilizationWithoutResetKeepsItsBarWithoutPace() {
         let limit = Limit(id: "weekly", title: "Weekly limit", windowLength: 604800,
                           window: ActiveWindow(utilization: 42, resetsAt: nil),
-                          resetBehavior: .awaitReading, isGeneralWeekly: true)
+                          resetBehavior: .awaitReading, isOverviewLimit: true)
         let result = limitDisplay(limit, now: Date(timeIntervalSince1970: 1000))
         #expect(result.percentText == "42%")
         #expect(result.fillFraction == 0.42)

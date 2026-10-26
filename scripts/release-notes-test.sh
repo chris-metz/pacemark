@@ -10,7 +10,8 @@ REQUIREMENTS="Requirements:
 
 - macOS 27
 - For Claude monitoring: Claude Code 2.1.283 or later, installed and logged in
-- For Codex monitoring: Codex CLI, installed and signed in with ChatGPT"
+- For Codex monitoring: Codex CLI, installed and signed in with ChatGPT
+- For Kimi monitoring: Kimi Code CLI, installed and logged in"
 
 # Keep the user's git config (signing, hooks, templates) out of the repos.
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1

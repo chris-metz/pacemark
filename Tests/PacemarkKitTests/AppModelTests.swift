@@ -130,7 +130,7 @@ let claudeLimits = [
     Limit(id: "session", title: "Session limit", windowLength: 5 * 3600,
           window: ActiveWindow(utilization: 14, resetsAt: Date(timeIntervalSince1970: 1_790_000_000))),
     Limit(id: "weekly", title: "Weekly limit", windowLength: 7 * 86400,
-          window: ActiveWindow(utilization: 36, resetsAt: Date(timeIntervalSince1970: 1_790_300_000)), isGeneralWeekly: true),
+          window: ActiveWindow(utilization: 36, resetsAt: Date(timeIntervalSince1970: 1_790_300_000)), isOverviewLimit: true),
     Limit(id: "model:Fable", title: "Fable limit", windowLength: 7 * 86400,
           window: ActiveWindow(utilization: 0, resetsAt: Date(timeIntervalSince1970: 1_790_300_000))),
 ]

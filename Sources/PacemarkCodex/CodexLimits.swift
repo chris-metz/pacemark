@@ -53,7 +53,7 @@ nonisolated struct RateLimitsResponse: Decodable, Sendable {
                     title: general ? title : "\(bucket.limitName ?? id) · \(title)",
                     windowLength: window.windowDurationMins.map { $0 * 60 },
                     window: ActiveWindow(utilization: window.usedPercent, resetsAt: window.resetsAt.map(Date.init(timeIntervalSince1970:))),
-                    resetBehavior: .awaitReading, isGeneralWeekly: general && window.isWeekly && weeklyCount == 1)
+                    resetBehavior: .awaitReading, isOverviewLimit: general && window.isWeekly && weeklyCount == 1)
             }
         }
     }

@@ -80,7 +80,7 @@ nonisolated enum ClaudeParser {
         case .string("session"):
             return sessionLimit(window: try window(of: row))
         case .string("weekly_all"):
-            return Limit(id: "weekly", title: "Weekly limit", windowLength: weeklyWindow, window: try window(of: row), isGeneralWeekly: true)
+            return Limit(id: "weekly", title: "Weekly limit", windowLength: weeklyWindow, window: try window(of: row), isOverviewLimit: true)
         case .string("weekly_scoped"):
             let model = row["scope"]?["model"]
             guard let model, model != .null else {

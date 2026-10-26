@@ -1,0 +1,1 @@
+{"code":0,"msg":"success","data":{"kind":"ok","quota":{"usages":{"limit7d":{"usedRatio":0.5,"resetAt":"2026-01-19T09:00:00Z"},"monthTotal":{"usedRatio":0.4,"resetAt":"2026-02-10T00:00:00Z"}},"extraUsage":null}},"request_id":"01TESTREQUEST"}

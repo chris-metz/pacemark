@@ -44,19 +44,20 @@ public nonisolated struct Limit: Equatable, Sendable, Identifiable {
     public let windowLength: TimeInterval?
     /// How a previously observed reset affects this reading.
     public let resetBehavior: ResetBehavior
-    /// Only the provider's general weekly limit belongs in Overview.
-    public let isGeneralWeekly: Bool
+    /// The one limit that represents the provider in Overview: its general
+    /// weekly limit, or a longer general limit when it reports no weekly one.
+    public let isOverviewLimit: Bool
     /// nil = no window.
     public let window: ActiveWindow?
 
     public init(id: String, title: String, windowLength: TimeInterval?, window: ActiveWindow?,
-                resetBehavior: ResetBehavior = .inactive, isGeneralWeekly: Bool = false) {
+                resetBehavior: ResetBehavior = .inactive, isOverviewLimit: Bool = false) {
         self.id = id
         self.title = title
         self.windowLength = windowLength
         self.window = window
         self.resetBehavior = resetBehavior
-        self.isGeneralWeekly = isGeneralWeekly
+        self.isOverviewLimit = isOverviewLimit
     }
 }
 

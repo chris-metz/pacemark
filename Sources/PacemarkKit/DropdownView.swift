@@ -28,6 +28,8 @@ public struct DropdownView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            // Five regular segments don't fit the dropdown's width.
+            .controlSize(model.enabledProviders.count > 3 ? .small : .regular)
             .padding(.horizontal, 14)
             VStack(alignment: .leading, spacing: 14) {
                 switch model.selectedTab {

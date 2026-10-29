@@ -26,8 +26,8 @@ The identity is the account's `principalId` and email. If it changes between the
 
 ## Verification
 
-- Provider tests run a fake `grok` executable as a real child process that answers the agent's methods over stdio. They cover weekly and monthly periods, no period, utilization above 100, an unknown period type, `end ≤ start`, negative, non-numeric and missing percentages, a malformed timestamp, a missing `config`, an unexpected result, `-32601` and `-32602`, an agent that exits before its first answer, a missing login, a login that ends during the query, "Authentication required", service errors, an account switch, notifications between answers, the exact arguments, environment and working directory, stopping by closing input, the SIGTERM fallback, unresponsive processes, cancellation and a missing installation.
-- Three implementations seen to fail during development were caught: an unknown period type taken as weekly, a missing SIGTERM fallback (the query waited 20 s for the fake agent), and a cancelled query read as an agent that exited, which showed "Can't read Grok limits".
+- Provider tests run a fake `grok` executable as a real child process that answers the agent's methods over stdio. They cover weekly and monthly windows, an answer without `currentPeriod`, utilization above 100, an unknown window type, `end ≤ start`, negative, non-numeric and missing percentages, a malformed timestamp, a missing `config`, an unexpected result, `-32601` and `-32602`, an agent that exits before its first answer, a missing login, a login that ends during the query, "Authentication required", service errors, an account switch, notifications between answers, the exact arguments, the environment (nothing inherited) and the working directory, stopping by closing input, the SIGTERM fallback, unresponsive processes, cancellation and a missing installation.
+- Four broken implementations were caught: an unknown window type taken as weekly, a missing SIGTERM fallback (the query waited 20 s for the fake agent), and a cancelled query read as an agent that exited, which showed "Can't read Grok limits", all seen during development; and a deliberately inherited environment.
 - Native `NSHostingView` snapshots cover Overview with a Grok entry, the Grok tab, a Grok login problem and Settings with four providers, in light and dark. All 8 new reference images were visually inspected. The existing references are unchanged.
 - The opt-in live check is `PACEMARK_LIVE_GROK=1 swift test --filter GrokProviderTests/installedCLICompatibility`. It passed against the installed 1.0.70 CLI in 3.5 s, including discovery through the login shell, and left no agent process or temporary directory behind.
 - `swift build`, the full `swift test` and `scripts/release-notes-test.sh` passed.
@@ -35,13 +35,19 @@ The identity is the account's `principalId` and email. If it changes between the
 ## Deviations from #39
 
 - With four enabled providers, the dropdown's five tab segments don't fit its 300 pt width at regular size (313 pt needed, 272 pt available), so the tab bar then uses the small control size (267.5 pt). The owner chose this on 2026-10-29 over a wider dropdown. With up to three providers, the dropdown is unchanged.
-- `-32602 Invalid params` is an incompatible response too, as for Codex.
-- A second `_x.ai/auth/info` without a login also shows "Sign in to Grok", as Codex does for its second account read.
+- `-32602 Invalid params` is an incompatible response too, as for Codex. So are a request from the agent and an answer with an unexpected `id`, also as for Codex.
+- After a timeout or cancellation, Pacemark sends SIGTERM right away instead of waiting three seconds for the closed input to take effect.
+- "Sign in to Grok" adds "Pacemark needs Grok's own login.", as the Kimi problem does.
+- The README says `grok agent` runs "for a few seconds", not "about a second": closing its input alone takes about two seconds.
+
+## Review against `c707738`
+
+Standards and Spec were reviewed by separate agents. Fixed: words the glossary avoids ("allowance" in ADR 0006, "period" in a test name, a fixture name, `GrokLimits`' `Period` type and this file's prose) now say limit and window; the tab bar's control size reads as a segment count instead of a bare `> 3`; the error kept for the end of the agent's output is named `errorAtEnd`; the Kimi and Grok snapshot tests share their provider data and setup; the environment test now fails when anything is inherited, which it did for a deliberately broken implementation; and the deviations above are complete. Kept: the two `_x.ai/auth/info` guards in `GrokProvider.fetch()`, as `CodexProvider` inlines its two account reads.
 
 ## Not yet verified
 
 - That `creditUsagePercent` is a percentage, not a ratio: compare it with the percentage on grok.com/dashboard/usage.
-- The monthly period's type string; only `USAGE_PERIOD_TYPE_WEEKLY` was observed.
+- The monthly window's type string; only `USAGE_PERIOD_TYPE_WEEKLY` was observed.
 - An expired login, which Grok's README says happens after 7 days, presumably answering "Authentication required".
 - Team accounts, for which the TUI can say "Usage limits are managed by your team".
 - The "Install Grok" link to https://x.ai/cli, which answers 403 to curl; check it in a browser.

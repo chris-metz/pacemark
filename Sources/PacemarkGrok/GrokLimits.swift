@@ -12,16 +12,16 @@ nonisolated struct AuthInfo: Decodable, Sendable {
     }
 }
 
-/// `_x.ai/billing`: the subscription's credit use in its current period.
+/// `_x.ai/billing`: the subscription's credit use in its current window.
 nonisolated struct BillingResponse: Decodable, Sendable {
     let config: Config?
 
     struct Config: Decodable, Sendable {
         let creditUsagePercent: Double?
-        let currentPeriod: Period?
+        let currentPeriod: Window?
     }
 
-    struct Period: Decodable, Sendable {
+    struct Window: Decodable, Sendable {
         let type: String
         let start: String
         let end: String
@@ -29,13 +29,13 @@ nonisolated struct BillingResponse: Decodable, Sendable {
 
     func limits() throws -> [Limit] {
         guard let config else { throw GrokError.incompatible }
-        guard let period = config.currentPeriod else { return [] }
+        guard let window = config.currentPeriod else { return [] }
         guard let percent = config.creditUsagePercent, percent.isFinite, percent >= 0 else { throw GrokError.incompatible }
-        let start = try Self.date(period.start)
-        let end = try Self.date(period.end)
+        let start = try Self.date(window.start)
+        let end = try Self.date(window.end)
         guard end > start else { throw GrokError.incompatible }
-        let (id, title) = if period.type.hasSuffix("_WEEKLY") { ("weekly", "Weekly limit") }
-            else if period.type.hasSuffix("_MONTHLY") { ("monthly", "Monthly limit") }
+        let (id, title) = if window.type.hasSuffix("_WEEKLY") { ("weekly", "Weekly limit") }
+            else if window.type.hasSuffix("_MONTHLY") { ("monthly", "Monthly limit") }
             else { throw GrokError.incompatible }
         return [Limit(id: id, title: title, windowLength: end.timeIntervalSince(start),
                       window: ActiveWindow(utilization: percent, resetsAt: end),

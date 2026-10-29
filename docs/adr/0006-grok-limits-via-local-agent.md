@@ -4,7 +4,7 @@ Pacemark reads the Grok subscription limit by briefly starting the installed CLI
 
 The CLI offers no other way to read the limit without a model turn. Reading `~/.grok/auth.json` and calling xAI directly would be faster, but contradicts ADR 0001, and an expired login could not be refreshed. Driving the TUI's `/usage` in a pseudo-terminal would depend on display text. `_x.ai/billing` is an internal, undocumented extension method, so, as for Codex and Kimi, Pacemark validates every response and shows "Can't read Grok limits" when one does not decode.
 
-Monitoring xAI API spending with an API key of Pacemark's own was rejected as well. Pacemark would have to store a credential, and spending is an amount of money, not a limit with a pace. It is also unnecessary: calls with API keys created on grok.com draw on the same subscription allowance, so the one limit already counts them.
+Monitoring xAI API spending with an API key of Pacemark's own was rejected as well. Pacemark would have to store a credential, and spending is an amount of money, not a limit with a pace. It is also unnecessary: calls with API keys created on grok.com count toward the subscription limit, so that one limit already includes them.
 
 ## Consequences
 

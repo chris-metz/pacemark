@@ -151,10 +151,10 @@ nonisolated struct GrokExchange {
     mutating func request<Response: Decodable & Sendable>(
         _ method: String, id: Int, params: String = "{}", as: Response.Type
     ) async throws -> Response {
-        let ended = answered ? GrokError.unavailable : GrokError.incompatible
+        let errorAtEnd = answered ? GrokError.unavailable : GrokError.incompatible
         do {
             try child.send(#"{"jsonrpc":"2.0","id":\#(id),"method":"\#(method)","params":\#(params)}"#)
-        } catch { throw ended }
+        } catch { throw errorAtEnd }
         while let line = try await iterator.next() {
             if line.isEmpty { continue }
             guard let header = try? JSONDecoder().decode(Header.self, from: line) else { throw GrokError.incompatible }
@@ -173,7 +173,7 @@ nonisolated struct GrokExchange {
         }
         // A cancelled task's stream ends too, though the agent didn't.
         try Task.checkCancellation()
-        throw ended
+        throw errorAtEnd
     }
 
     private struct Header: Decodable {

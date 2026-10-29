@@ -106,7 +106,7 @@ nonisolated func date(_ iso: String) -> Date {
 }
 
 extension GrokProviderTests {
-    @Test func aMonthlyPeriodBecomesTheMonthlyLimit() async throws {
+    @Test func aMonthlyWindowBecomesTheMonthlyLimit() async throws {
         let cli = try ScriptedGrok(billing: #""result":\#(fixture("monthly"))"#)
         guard case .limits(let limits, _) = await cli.provider.fetch() else {
             Issue.record("Expected limits"); return
@@ -141,7 +141,7 @@ extension GrokProviderTests {
 }
 
 extension GrokProviderTests {
-    @Test(arguments: ["over-100", "no-period"])
+    @Test(arguments: ["over-100", "no-current-period"])
     func incompleteAnswersKeepTheirMeaning(fixture name: String) async throws {
         let cli = try ScriptedGrok(billing: #""result":\#(fixture(name))"#)
         guard case .limits(let limits, _) = await cli.provider.fetch() else {
@@ -198,7 +198,12 @@ extension GrokProviderTests {
         _ = await cli.provider.fetch()
         #expect(try cli.recorded("arguments") == "agent --no-leader stdio\n")
         let environment = try cli.recorded("environment").split(separator: "\n").map(String.init)
-        #expect(environment.filter { $0.hasPrefix("GROK") || $0.hasPrefix("XAI") } == ["GROK_TELEMETRY_ENABLED=0"])
+        // Nothing from this process's environment, e.g. no XAI_API_KEY: only
+        // what Pacemark sets, besides what the shell adds itself.
+        let names = Set(environment.map { String($0.prefix { $0 != "=" }) }).subtracting(["PWD", "SHLVL", "_", "OLDPWD"])
+        #expect(names == ["HOME", "USER", "PATH", "GROK_TELEMETRY_ENABLED"])
+        #expect(environment.contains("GROK_TELEMETRY_ENABLED=0"))
+        #expect(environment.contains("USER=\(NSUserName())"))
         #expect(environment.contains("HOME=\(cli.directory.path)"))
         #expect(environment.contains("PATH=\(cli.directory.path):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"))
         // A fresh directory, so the agent loads no project configuration,

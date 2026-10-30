@@ -61,6 +61,7 @@ pnpm's `kimi` is a shell shim that runs `exec node …/main.mjs` and takes `node
 - fish, zsh, bash and sh exit with status 0 when only `node` is missing, and nonzero when `kimi` is missing.
 - The live check passed in 3.0 s, with discovery through fish. In this setup, mise's Node 24 also held an npm-installed `kimi`, but the login shell reported the pnpm shim first. At `a5e9ebc`, before #40, the same check recorded a problem instead of limits. No `kimi web` process was left behind.
 - `swift build`, the full `swift test` and `scripts/release-notes-test.sh` passed.
+- On 2026-10-30, the branch build at `d316dd1`, installed with `scripts/install.sh`, ran in the real menu bar app with the pnpm install and Kimi enabled in Settings. Overview showed "Kimi · Monthly limit" with its pace, updated just now, next to Claude, Codex and Grok, where the Grok check's build at `ce0367c` had shown "Can't read Kimi limits". No `kimi web` process was left behind.
 
 ### Deviation from #40
 
@@ -74,4 +75,3 @@ Standards and Spec were reviewed by separate agents. Fixed: `kimi` and its `node
 
 - The monthly window rule across a real reset: after the next one, the following reset should fall on the same day one month later at 00:00 UTC.
 - A plan that reports a weekly limit; the observed plan reported only the 5-hour and monthly limits.
-- The pnpm install in the real menu bar app.

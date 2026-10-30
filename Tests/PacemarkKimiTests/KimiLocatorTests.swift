@@ -9,17 +9,14 @@ import Testing
     @Test func theLoginShellReportsKimiAndTheNodeItRunsWith() throws {
         let cli = try ScriptedKimi()
         let (kimi, node) = try cli.pnpmInstall()
-        let found = KimiLocator.installation(in: "Welcome back\n/bin/sh\n\(node.path)\n\(kimi.path)\n")
-        #expect(found?.binary == kimi)
-        #expect(found?.node == node)
+        #expect(KimiLocator.installation(in: "Welcome back\n/bin/sh\n\(node.path)\n\(kimi.path)\n")
+            == KimiInstallation(binary: kimi, node: node))
     }
 
     @Test func withoutNodeKimiIsStillFound() throws {
         let cli = try ScriptedKimi()
         let (kimi, _) = try cli.pnpmInstall()
-        let found = KimiLocator.installation(in: "/bin/sh\n\(kimi.path)\n")
-        #expect(found?.binary == kimi)
-        #expect(found?.node == nil)
+        #expect(KimiLocator.installation(in: "/bin/sh\n\(kimi.path)\n") == KimiInstallation(binary: kimi, node: nil))
     }
 
     /// The provider then shows "Kimi Code not found".

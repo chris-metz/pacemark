@@ -14,7 +14,7 @@ Each query starts `kimi web --no-open --port 0 --log-level warn`. With a log lev
 
 Pacemark reads `userinfo`, `usage` and `userinfo` again, each with `provider=managed:kimi-code`, then stops the server. Answers are envelopes `{"code":0,"data":{"kind":"ok"|"error",…}}`. Without a login (tested with an empty `KIMI_CODE_HOME`), the server still answers 200, with `kind: "error"` and the message "No token for … Run /login to authenticate."; a rejected token adds `status: 401`. Both show "Sign in to Kimi Code". Other errors, 5xx answers and envelopes with a nonzero `code` are temporary; other HTTP statuses from the local server show "Can't read Kimi limits".
 
-Discovery checks local and Homebrew locations, then the user's interactive login shell, which runs `command -v node; command -v kimi`. `kimi` comes last, so the exit status says whether it was found, with or without `node`. The child's `PATH` starts with the unresolved binary's directory, which with npm under mise also holds `node`. Next comes the directory of the shell's `node`, if it differs, because a pnpm shim takes `node` from `PATH` (see [pnpm installs](#pnpm-installs)). The child environment contains only `HOME`, `USER`, `PATH` and `KIMI_DISABLE_TELEMETRY=1`; API-key, base-URL and home overrides are not inherited, and custom `KIMI_CODE_HOME` locations are not discovered. The whole exchange has one thirty-second deadline, plus up to two seconds for a server that ignores SIGTERM, and a 2 MiB stdout ceiling; stderr, the token and account data are not logged.
+Discovery checks local and Homebrew locations, then the user's interactive login shell, which runs `command -v node; command -v kimi`. `kimi` comes last, so the exit status says whether it was found, with or without `node`. The child's `PATH` starts with the unresolved binary's directory, which with npm under mise also holds `node`. Next comes the directory of the shell's `node`, if it differs, for [pnpm installs](#pnpm-installs). The child environment contains only `HOME`, `USER`, `PATH` and `KIMI_DISABLE_TELEMETRY=1`; API-key, base-URL and home overrides are not inherited, and custom `KIMI_CODE_HOME` locations are not discovered. The whole exchange has one thirty-second deadline, plus up to two seconds for a server that ignores SIGTERM, and a 2 MiB stdout ceiling; stderr, the token and account data are not logged.
 
 The server is stopped with SIGTERM. A graceful shutdown took about 0.05 s and left no entry in Kimi's instance registry; SIGKILL follows only after two seconds. Starting the server has side effects in Kimi's data directory: the first start creates the persistent `server.token`, and each start opens Kimi's session and search indexes.
 
@@ -51,15 +51,24 @@ Standards and Spec were reviewed by separate agents. Fixed: the Settings note st
 
 Implementation of [#40](https://github.com/chris-metz/pacemark/issues/40), verified on 2026-10-30 against Kimi Code CLI 2.4.0 installed through pnpm into `~/Library/pnpm/bin/kimi`, with `node` from mise in `~/.local/share/mise/installs/node/24/bin`.
 
-pnpm's `kimi` is a shell shim that runs `exec node …/main.mjs` and takes `node` from `PATH`. Before #40, the child's `PATH` held only the shim's directory and the system directories, so the shim exited at once and Pacemark showed "Can't read Kimi limits". Now the same login-shell run that finds `kimi` also reports `node`; with fish it took 0.26 s. Pacemark keeps the unresolved `node` path, so mise's `node/24` link still holds after a Node update. Without `node`, `kimi` is still found and the shim's failure shows "Can't read Kimi limits", as before; a dedicated message is out of scope.
+pnpm's `kimi` is a shell shim that runs `exec node …/main.mjs` and takes `node` from `PATH`. Before #40, the child's `PATH` held only the shim's directory and the system directories, so the shim exited at once and Pacemark showed "Can't read Kimi limits". The `node` lookup adds no shell run: with fish, the shared run took 0.26 s. Pacemark keeps the unresolved `node` path, so mise's `node/24` link still holds after a Node update. Without `node`, `kimi` is still found and the shim's failure shows "Can't read Kimi limits", as before; a dedicated message is out of scope.
 
-- Provider tests run a pnpm-style shim whose scripted server stands in for `node`, reachable only through the added directory, and check the child's `PATH` order. Without `node`, the shim fails with "Can't read Kimi limits". With `node` next to `kimi`, as with npm under mise, `PATH` is unchanged.
+### Verification
+
+- Provider tests run a pnpm-style shim whose scripted server stands in for `node`, reachable only through the added directory, and check the child's `PATH` order. Without `node`, the shim fails with "Can't read Kimi limits"; this test runs only where the system directories hold no `node`, which the shim would find instead. With `node` next to `kimi`, as with npm under mise, `PATH` is unchanged.
 - Locator tests read login-shell answers with startup output, without `node` and without `kimi`.
 - Deliberately broken implementations were caught: no `node` directory, the `node` directory before the binary's, the old rule that took the last executable line as `kimi`, and an answer whose `node` is ignored.
 - fish, zsh, bash and sh exit with status 0 when only `node` is missing, and nonzero when `kimi` is missing.
-- The live check passed in 3.1 s, with discovery through fish. In this setup, mise's Node 24 also held an npm-installed `kimi`, but the login shell reported the pnpm shim first. At `a5e9ebc`, before #40, the same check recorded a problem instead of limits. No `kimi web` process was left behind.
+- The live check passed in 3.0 s, with discovery through fish. In this setup, mise's Node 24 also held an npm-installed `kimi`, but the login shell reported the pnpm shim first. At `a5e9ebc`, before #40, the same check recorded a problem instead of limits. No `kimi web` process was left behind.
+- `swift build`, the full `swift test` and `scripts/release-notes-test.sh` passed.
 
-Deviation from #40: `node` is looked up only when the login shell is asked for `kimi`. A `kimi` in `~/.local/bin` or a Homebrew location starts as before, without a shell run, so a pnpm shim placed there, with `PNPM_HOME` set to one of them, would still lack `node`. This hasn't been observed.
+### Deviation from #40
+
+`node` is looked up only when the login shell is asked for `kimi`. A `kimi` in `~/.local/bin` or a Homebrew location starts as before, without a shell run, so a pnpm shim placed there, with `PNPM_HOME` set to one of them, would still lack `node`. This hasn't been observed, and was chosen over a shell run for every query.
+
+### Review against `a5e9ebc`
+
+Standards and Spec were reviewed by separate agents. Fixed: `kimi` and its `node` travelled as a loose pair and are now one `KimiInstallation`; the provider tests read the child's environment and the system `PATH` in one place each; the missing-`node` test no longer passes for the wrong reason on a Mac with Homebrew's `node`; this section now has its own deviation heading and no longer repeats the Exchange section. Kept: the locator tests reuse the provider tests' pnpm layout instead of a helper of their own, and `KimiProvider`'s test initializer keeps its `executable` label.
 
 ## Not yet verified
 

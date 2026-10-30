@@ -35,10 +35,10 @@ npm install -g @openai/codex
 codex login
 ```
 
-Kimi Code reports its plan limits only through the local server behind its web UI. For each query, Pacemark starts the installed CLI's `kimi web` on 127.0.0.1 for about a second, reads the limits, and stops it. As with Codex, Pacemark accepts any CLI version and checks each response; an incompatible one shows "Can't read Kimi limits". Kimi reports no window start, so the monthly limit's pace assumes the calendar month that ends at its reset. To install Kimi Code:
+Kimi Code reports its plan limits only through the local server behind its web UI. For each query, Pacemark starts the installed CLI's `kimi web` on 127.0.0.1 for about a second, reads the limits, and stops it. As with Codex, Pacemark accepts any CLI version and checks each response; an incompatible one shows "Can't read Kimi limits". Kimi reports no window start, so the monthly limit's pace assumes the calendar month that ends at its reset. To install Kimi Code with npm or pnpm:
 
 ```sh
-npm install -g @moonshot-ai/kimi-code
+npm install -g @moonshot-ai/kimi-code   # or: pnpm add -g @moonshot-ai/kimi-code
 kimi login
 ```
 

@@ -35,18 +35,45 @@ import Testing
 nonisolated final class ScriptedKimi: Sendable {
     static let readyLine = "Kimi server: http://127.0.0.1:4242/#token=test-token"
     static let userA = #"{"code":0,"msg":"success","data":{"kind":"ok","userInfo":{"userId":"user-a","nickname":"One","email":"one@example.test","status":"normal","region":"global"}},"request_id":"01TEST"}"#
+    /// The end of every child's `PATH`.
+    static let systemPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
     let directory: URL
     let executable: URL
     private let answers: Mutex<(limits: (Int, String), userinfo: [(Int, String)], requests: [String])>
 
-    var provider: KimiProvider {
-        KimiProvider(executable: executable, homeDirectory: directory, timeout: .seconds(2), transport: { [self] url, token in
+    var provider: KimiProvider { provider(kimi: executable, node: nil) }
+
+    /// `node` is the one the login shell would report.
+    func provider(kimi: URL, node: URL?) -> KimiProvider {
+        KimiProvider(executable: kimi, node: node, homeDirectory: directory, timeout: .seconds(2), transport: { [self] url, token in
             answer(url, token: token)
         })
     }
 
+    /// A pnpm-style `kimi` shim that takes `node` from `PATH`. The scripted
+    /// server stands in for `node`, in a directory of its own.
+    func pnpmInstall() throws -> (kimi: URL, node: URL) {
+        let kimi = directory.appending(path: "pnpm/kimi")
+        let node = directory.appending(path: "node/bin/node")
+        for url in [kimi, node] {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        }
+        try FileManager.default.copyItem(at: executable, to: node)
+        try "#!/bin/sh\nexec node main.mjs \"$@\"\n".write(to: kimi, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: kimi.path)
+        return (kimi, node)
+    }
+
     var requests: [String] { answers.withLock { $0.requests } }
+
+    /// The environment the scripted server started with.
+    var environment: [String] {
+        get throws {
+            try String(contentsOf: directory.appending(path: "environment"), encoding: .utf8)
+                .split(separator: "\n").map(String.init)
+        }
+    }
 
     /// `behavior` replaces printing the ready line and waiting for SIGTERM.
     init(limits: String? = nil, limitsStatus: Int = 200, userinfo: String = ScriptedKimi.userA,
@@ -183,10 +210,38 @@ extension KimiProviderTests {
         _ = await cli.provider.fetch()
         let arguments = try String(contentsOf: cli.directory.appending(path: "arguments"), encoding: .utf8)
         #expect(arguments == "web --no-open --port 0 --log-level warn\n")
-        let environment = try String(contentsOf: cli.directory.appending(path: "environment"), encoding: .utf8)
-            .split(separator: "\n").map(String.init)
+        let environment = try cli.environment
         #expect(environment.filter { $0.hasPrefix("KIMI") } == ["KIMI_DISABLE_TELEMETRY=1"])
-        #expect(environment.contains("PATH=\(cli.directory.path):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"))
+        #expect(environment.contains("PATH=\(cli.directory.path):\(ScriptedKimi.systemPath)"))
+    }
+
+    @Test func aPnpmShimRunsTheLoginShellsNode() async throws {
+        let cli = try ScriptedKimi()
+        let (kimi, node) = try cli.pnpmInstall()
+        let result = await cli.provider(kimi: kimi, node: node).fetch()
+        guard case .limits = result else {
+            Issue.record("Expected limits, got \(result)")
+            return
+        }
+        #expect(try cli.environment.contains(
+            "PATH=\(cli.directory.path)/pnpm:\(cli.directory.path)/node/bin:\(ScriptedKimi.systemPath)"))
+    }
+
+    /// Elsewhere, the shim would find that `node` instead.
+    @Test(.enabled(if: ["/opt/homebrew/bin/node", "/usr/local/bin/node"].allSatisfy {
+        !FileManager.default.fileExists(atPath: $0)
+    }, "Only without a node in the system directories"))
+    func aPnpmShimWithoutNodeHasAnIncompatibleResponseMessage() async throws {
+        let cli = try ScriptedKimi()
+        let (kimi, _) = try cli.pnpmInstall()
+        #expect(await cli.provider(kimi: kimi, node: nil).fetch() == .problem(.kimiResponse))
+    }
+
+    /// npm under mise.
+    @Test func aNodeNextToKimiKeepsThePath() async throws {
+        let cli = try ScriptedKimi()
+        _ = await cli.provider(kimi: cli.executable, node: cli.directory.appending(path: "node")).fetch()
+        #expect(try cli.environment.contains("PATH=\(cli.directory.path):\(ScriptedKimi.systemPath)"))
     }
 
     @Test func aWellBehavedServerIsStoppedGracefully() async throws {

@@ -10,20 +10,21 @@ typealias KimiTransport = @Sendable (_ url: URL, _ token: String) async throws -
 public nonisolated struct KimiProvider: Provider {
     public let id = "kimi"
     public let name = "Kimi"
-    private let executable: URL?
+    /// `nil`: located anew for each query.
+    private let installation: KimiInstallation?
     private let homeDirectory: URL
     private let timeout: Duration
     private let transport: KimiTransport
 
     public init() {
-        executable = nil
+        installation = nil
         homeDirectory = FileManager.default.homeDirectoryForCurrentUser
         timeout = .seconds(30)
         transport = Self.urlSession
     }
 
-    init(executable: URL, homeDirectory: URL, timeout: Duration, transport: @escaping KimiTransport) {
-        self.executable = executable
+    init(executable: URL, node: URL? = nil, homeDirectory: URL, timeout: Duration, transport: @escaping KimiTransport) {
+        installation = KimiInstallation(binary: executable, node: node)
         self.homeDirectory = homeDirectory
         self.timeout = timeout
         self.transport = transport
@@ -31,13 +32,14 @@ public nonisolated struct KimiProvider: Provider {
 
     @concurrent public func fetch() async -> FetchResult {
         do {
-            let located = if let executable { executable } else { await KimiLocator.locate(homeDirectory: homeDirectory) }
-            guard let binary = located, FileManager.default.isExecutableFile(atPath: binary.path) else {
+            let located = if let installation { installation } else { await KimiLocator.locate(homeDirectory: homeDirectory) }
+            guard let located, FileManager.default.isExecutableFile(atPath: located.binary.path) else {
                 return .problem(.kimiNotFound)
             }
             // Port 0: the server picks a free port and reports it.
-            let child = try KimiProcess(executable: binary, arguments: ["web", "--no-open", "--port", "0", "--log-level", "warn"],
-                directory: homeDirectory, environment: KimiLocator.environment(homeDirectory: homeDirectory, binary: binary))
+            let child = try KimiProcess(executable: located.binary,
+                arguments: ["web", "--no-open", "--port", "0", "--log-level", "warn"], directory: homeDirectory,
+                environment: KimiLocator.environment(homeDirectory: homeDirectory, installation: located))
             return try await child.perform(timeout: timeout) { [transport] in
                 let (origin, token) = try await child.readyServer()
                 let server = KimiServer(origin: origin, token: token, transport: transport)

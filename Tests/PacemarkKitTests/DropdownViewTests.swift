@@ -135,9 +135,9 @@ import Testing
         dropdown(await model(after: result, settings: settings, at: now))
     }
 
+    /// One enabled provider: its page, without a sidebar.
     private func dropdown(_ model: AppModel) -> some View {
-        model.selectedTab = .provider(model.providers[0].id)
-        return DropdownView(model: model)
+        DropdownView(model: model)
             .environment(\.timeZone, berlin)
             .environment(\.locale, enDE)
     }

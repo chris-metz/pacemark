@@ -9,7 +9,7 @@ An AI service whose limits Pacemark can show, such as Claude, Codex, Kimi or Gro
 _Avoid_: vendor, service, account
 
 **Enabled provider**:
-A provider the user has selected for monitoring in Pacemark, included in Overview and given its own provider tab.
+A provider the user has selected for monitoring in Pacemark, included in Overview and given its own provider page.
 _Avoid_: active provider, connected provider
 
 **Limit**:
@@ -45,12 +45,16 @@ A limit whose utilization has reached 100 %. Whether further use is available de
 _Avoid_: used up, full, maxed out
 
 **Menu bar limit**:
-The single limit, from any provider, whose utilization the menu bar item shows independently of the open tab. Initially it is the first available limit of the first enabled provider, for Claude the session limit. The user can choose a different limit.
+The single limit, from any provider, whose utilization the menu bar item shows independently of the selected page. Initially it is the first available limit of the first enabled provider, for Claude the session limit. The user can choose a different limit.
 _Avoid_: headline limit, main limit, primary limit
 
 **Overview**:
-A shared view of enabled providers, with one entry per provider showing its weekly limit, or its monthly limit when it reports no weekly one. Model limits belong to the individual provider tabs.
+A shared view of enabled providers, with one entry per provider showing its weekly limit, or its monthly limit when it reports no weekly one. Model limits belong to the individual provider pages.
 _Avoid_: dashboard, summary
+
+**Provider page**:
+The dropdown's view of one enabled provider, with all its limits the user hasn't hidden. With two or more enabled providers, the dropdown's sidebar picks it or Overview.
+_Avoid_: provider tab, provider view, details page
 
 ### Claude's limits
 

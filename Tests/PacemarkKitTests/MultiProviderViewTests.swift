@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import PacemarkKit
 import SwiftUI
@@ -44,7 +45,7 @@ import Testing
             _ = await timer.armed()
             _ = await timer.armed()
         }
-        if ["codex", "details", "hidden"].contains(scenario) { model.selectedTab = .provider("codex") }
+        if ["codex", "details", "hidden"].contains(scenario) { model.selectedPage = .provider("codex") }
         if scenario == "hidden" {
             for limit in codexLimits { model.setLimit(limit, providerID: "codex", shownInDropdown: false) }
         }
@@ -53,7 +54,7 @@ import Testing
             expectViewSnapshot(SettingsView(model: model, openAtLogin: login, version: "Version 0.1 (a1b2c3d)"), width: 440, test: "multi-settings")
         } else {
             expectViewSnapshot(DropdownView(model: model).environment(\.timeZone, berlin).environment(\.locale, enDE),
-                               width: 300, test: "multi-\(scenario)")
+                               width: scenario == "setup" ? 300 : 445, test: "multi-\(scenario)")
         }
         if scenario == "loading" { deferred.answer(.unavailable); _ = await timer.armed() }
     }
@@ -105,7 +106,7 @@ extension MultiProviderViewTests {
     ]
 
     /// Enables the `earlier` providers and the one named `id`, last, and
-    /// renders `scenario`: Overview, the tab named `id`, or Settings.
+    /// renders `scenario`: Overview, the page named `id`, or Settings.
     private func expectScreen(_ scenario: String, providerID id: String, answering result: FetchResult,
                               after earlier: [(id: String, result: FetchResult)]) async {
         let timer = FakeTimer()
@@ -114,14 +115,66 @@ extension MultiProviderViewTests {
         model.settings.enabledProviderIDs = providers.map(\.id)
         model.launch()
         for _ in providers { _ = await timer.armed() }
-        if scenario == id { model.selectedTab = .provider(id) }
+        if scenario == id { model.selectedPage = .provider(id) }
         if scenario.hasSuffix("-settings") {
             let openAtLogin = OpenAtLogin(loginItem: FakeLoginItem(.notRegistered), bundleURL: URL(filePath: "/Applications/Pacemark.app"))
             expectViewSnapshot(SettingsView(model: model, openAtLogin: openAtLogin, version: "Version 0.1 (a1b2c3d)"),
                                width: 440, test: "multi-\(scenario)")
         } else {
             expectViewSnapshot(DropdownView(model: model).environment(\.timeZone, berlin).environment(\.locale, enDE),
-                               width: 300, test: "multi-\(scenario)")
+                               width: 445, test: "multi-\(scenario)")
         }
+    }
+}
+
+extension MultiProviderViewTests {
+    /// Claude fine, Codex's 5-hour limit over pace, Kimi signed out and Grok
+    /// at 92 %: no dot, orange, red and red (#41).
+    @Test(arguments: ["attention-overview", "attention-codex"])
+    func attentionDots(scenario: String) async {
+        let model = await Self.attentionModel()
+        if scenario == "attention-codex" { model.selectedPage = .provider("codex") }
+        expectViewSnapshot(DropdownView(model: model).environment(\.timeZone, berlin).environment(\.locale, enDE),
+                           width: 445, test: "multi-\(scenario)")
+    }
+
+    /// The tab bar of five segments was 345 pt wide and cut the dropdown off
+    /// after a switch; no page may make the dropdown wider than 445 pt.
+    @Test func everyPageKeepsTheWidth() async {
+        let model = await Self.attentionModel()
+        let host = NSHostingView(rootView: DropdownView(model: model).environment(\.timeZone, berlin).environment(\.locale, enDE))
+        for page in [DropdownPage.overview] + model.enabledProviders.map({ .provider($0.id) }) + [.overview] {
+            model.selectedPage = page
+            host.layoutSubtreeIfNeeded()
+            #expect(host.fittingSize.width == 445, "\(page)")
+        }
+    }
+
+    private static func attentionModel() async -> AppModel {
+        let timer = FakeTimer()
+        let codex = [
+            Limit(id: "primary", title: "5-hour limit", windowLength: 18000,
+                  window: ActiveWindow(utilization: 85, resetsAt: date("2026-10-04T11:30:00Z")), resetBehavior: .awaitReading),
+            Limit(id: "secondary", title: "Weekly limit", windowLength: 604800,
+                  window: ActiveWindow(utilization: 20, resetsAt: date("2026-10-09T13:00:00Z")),
+                  resetBehavior: .awaitReading, isOverviewLimit: true),
+        ]
+        let grok = [
+            Limit(id: "weekly", title: "Weekly limit", windowLength: 604800,
+                  window: ActiveWindow(utilization: 92, resetsAt: date("2026-10-08T09:00:00Z")),
+                  resetBehavior: .awaitReading, isOverviewLimit: true),
+        ]
+        let kimiLogin = Problem(heading: "Sign in to Kimi Code",
+                                message: "Run `kimi login` in Terminal. Pacemark needs Kimi Code's own login.", link: nil)
+        let claude = [session(utilization: 31, resetsAt: "2026-10-04T10:21:00Z"),
+                      weekly(utilization: 15, resetsAt: "2026-10-07T00:00:00Z"),
+                      fable(utilization: 0, resetsAt: "2026-10-07T00:00:00Z")]
+        let providers = [FakeProvider(.limits(claude), id: "claude"), FakeProvider(.limits(codex), id: "codex"),
+                         FakeProvider(.problem(kimiLogin), id: "kimi"), FakeProvider(.limits(grok), id: "grok")]
+        let model = AppModel(providers: providers, clock: { now }, sleep: { try await timer.sleep($0) })
+        model.settings.enabledProviderIDs = providers.map(\.id)
+        model.launch()
+        for _ in providers { _ = await timer.armed() }
+        return model
     }
 }

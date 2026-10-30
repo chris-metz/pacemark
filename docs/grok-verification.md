@@ -32,7 +32,7 @@ The identity is the account's `principalId` and email. If it changes between the
 - The opt-in live check is `PACEMARK_LIVE_GROK=1 swift test --filter GrokProviderTests/installedCLICompatibility`. It passed against the installed 1.0.70 CLI in 3.5 s, including discovery through the login shell, and left no agent process or temporary directory behind.
 - `swift build`, the full `swift test` and `scripts/release-notes-test.sh` passed.
 - On 2026-10-30, the branch build at `ce0367c`, installed with `scripts/install.sh`, ran in the real menu bar app with Grok enabled in Settings. Overview showed "Grok · Weekly limit" at 1 %, resetting Monday 12:37 local time, and the small tab bar fitted all five tabs. grok.com/dashboard/usage showed "Weekly included usage: 1% used, Resets Nov 2" at the same time, so `creditUsagePercent` is a percentage, not a ratio. In a browser, the "Install Grok" link reached the Grok Build page (x.ai/build) with the install command.
-- In the same check, Kimi showed "Can't read Kimi limits". Kimi Code had been reinstalled that morning as 2.4.0 through pnpm, whose `kimi` shim needs `node` on `PATH`, and Pacemark's child environment has none. This is unrelated to Grok.
+- In the same check, Kimi showed "Can't read Kimi limits". Kimi Code had been reinstalled that morning as 2.4.0 through pnpm, whose `kimi` shim needs `node` on `PATH`, and Pacemark's child environment has none. This is unrelated to Grok; see [#40](https://github.com/chris-metz/pacemark/issues/40).
 
 ## Deviations from #39
 

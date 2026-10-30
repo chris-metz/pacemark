@@ -31,6 +31,8 @@ The identity is the account's `principalId` and email. If it changes between the
 - Native `NSHostingView` snapshots cover Overview with a Grok entry, the Grok tab, a Grok login problem and Settings with four providers, in light and dark. All 8 new reference images were visually inspected. The existing references are unchanged.
 - The opt-in live check is `PACEMARK_LIVE_GROK=1 swift test --filter GrokProviderTests/installedCLICompatibility`. It passed against the installed 1.0.70 CLI in 3.5 s, including discovery through the login shell, and left no agent process or temporary directory behind.
 - `swift build`, the full `swift test` and `scripts/release-notes-test.sh` passed.
+- On 2026-10-30, the branch build at `ce0367c`, installed with `scripts/install.sh`, ran in the real menu bar app with Grok enabled in Settings. Overview showed "Grok · Weekly limit" at 1 %, resetting Monday 12:37 local time, and the small tab bar fitted all five tabs. grok.com/dashboard/usage showed "Weekly included usage: 1% used, Resets Nov 2" at the same time, so `creditUsagePercent` is a percentage, not a ratio. In a browser, the "Install Grok" link reached the Grok Build page (x.ai/build) with the install command.
+- In the same check, Kimi showed "Can't read Kimi limits". Kimi Code had been reinstalled that morning as 2.4.0 through pnpm, whose `kimi` shim needs `node` on `PATH`, and Pacemark's child environment has none. This is unrelated to Grok.
 
 ## Deviations from #39
 
@@ -46,9 +48,6 @@ Standards and Spec were reviewed by separate agents. Fixed: words the glossary a
 
 ## Not yet verified
 
-- That `creditUsagePercent` is a percentage, not a ratio: compare it with the percentage on grok.com/dashboard/usage.
 - The monthly window's type string; only `USAGE_PERIOD_TYPE_WEEKLY` was observed.
 - An expired login, which Grok's README says happens after 7 days, presumably answering "Authentication required".
 - Team accounts, for which the TUI can say "Usage limits are managed by your team".
-- The "Install Grok" link to https://x.ai/cli, which answers 403 to curl; check it in a browser.
-- The branch build in the real menu bar app (`scripts/install.sh`).

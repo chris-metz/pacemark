@@ -1,6 +1,6 @@
 # Grok compatibility and verification
 
-Implementation of [#39](https://github.com/chris-metz/pacemark/issues/39), verified on macOS 27.0.1 with Apple Swift 6.4 on 2026-10-29, against the Grok CLI 1.0.70 (alpha channel, installed through mise) with a SuperGrok login. No credentials, account identity or live utilization were recorded in fixtures or test logs.
+Implementation of [#39](https://github.com/chris-metz/pacemark/issues/39), verified on macOS 27.0.1 with Apple Swift 6.4 on 2026-10-29, against the Grok CLI 1.0.70 (alpha channel, installed through mise) with a Grok subscription login. No credentials, account identity or live utilization were recorded in fixtures, test logs or these notes.
 
 ## Supported CLI policy
 
@@ -31,7 +31,7 @@ The identity is the account's `principalId` and email. If it changes between the
 - Native `NSHostingView` snapshots cover Overview with a Grok entry, the Grok tab, a Grok login problem and Settings with four providers, in light and dark. All 8 new reference images were visually inspected. The existing references are unchanged.
 - The opt-in live check is `PACEMARK_LIVE_GROK=1 swift test --filter GrokProviderTests/installedCLICompatibility`. It passed against the installed 1.0.70 CLI in 3.5 s, including discovery through the login shell, and left no agent process or temporary directory behind.
 - `swift build`, the full `swift test` and `scripts/release-notes-test.sh` passed.
-- On 2026-10-30, the branch build at `ce0367c`, installed with `scripts/install.sh`, ran in the real menu bar app with Grok enabled in Settings. Overview showed "Grok · Weekly limit" at 1 %, resetting Monday 12:37 local time, and the small tab bar fitted all five tabs. grok.com/dashboard/usage showed "Weekly included usage: 1% used, Resets Nov 2" at the same time, so `creditUsagePercent` is a percentage, not a ratio. In a browser, the "Install Grok" link reached the Grok Build page (x.ai/build) with the install command.
+- On 2026-10-30, the branch build at `ce0367c`, installed with `scripts/install.sh`, ran in the real menu bar app with Grok enabled in Settings. Overview showed "Grok · Weekly limit" with its pace, and the small tab bar fitted all five tabs. The percentage and reset day matched "Weekly included usage" on grok.com/dashboard/usage at the same time, so `creditUsagePercent` is a percentage, not a ratio. In a browser, the "Install Grok" link reached the Grok Build page (x.ai/build) with the install command.
 - In the same check, Kimi showed "Can't read Kimi limits". Kimi Code had been reinstalled that morning as 2.4.0 through pnpm, whose `kimi` shim needs `node` on `PATH`, and Pacemark's child environment has none. This is unrelated to Grok; see [#40](https://github.com/chris-metz/pacemark/issues/40).
 
 ## Deviations from #39

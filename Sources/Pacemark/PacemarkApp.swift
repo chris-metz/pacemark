@@ -21,8 +21,16 @@ struct PacemarkApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            DropdownView(model: model)
-                .onAppear { model.dropdownOpened() }
+            // PROTOTYPE: the dropdown layouts without tabs, with
+            // `-PrototypeDropdown YES`.
+            Group {
+                if isDropdownPrototypeEnabled {
+                    PrototypeDropdownView(model: model)
+                } else {
+                    DropdownView(model: model)
+                }
+            }
+            .onAppear { model.dropdownOpened() }
         } label: {
             MenuBarItemLabel(model: model, delegate: delegate)
         }

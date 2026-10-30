@@ -28,6 +28,7 @@ public struct DropdownView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .controlSize(tabControlSize)
             .padding(.horizontal, 14)
             VStack(alignment: .leading, spacing: 14) {
                 switch model.selectedTab {
@@ -50,6 +51,12 @@ public struct DropdownView: View {
         .padding(.top, 12)
         .padding(.bottom, 8)
         .frame(width: 300)
+    }
+
+    /// Overview and one tab per enabled provider: five regular segments
+    /// don't fit the dropdown's width.
+    private var tabControlSize: ControlSize {
+        1 + model.enabledProviders.count < 5 ? .regular : .small
     }
 
     private var updateLine: String? {

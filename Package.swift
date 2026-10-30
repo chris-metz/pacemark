@@ -17,7 +17,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "Pacemark",
-            dependencies: ["PacemarkKit", "PacemarkClaude", "PacemarkCodex", "PacemarkKimi"],
+            dependencies: ["PacemarkKit", "PacemarkClaude", "PacemarkCodex", "PacemarkKimi", "PacemarkGrok"],
             swiftSettings: swiftSettings
         ),
         .target(
@@ -34,6 +34,9 @@ let package = Package(
                     resources: [.copy("Fixtures")], swiftSettings: swiftSettings),
         .target(name: "PacemarkKimi", dependencies: ["PacemarkKit"], swiftSettings: swiftSettings),
         .testTarget(name: "PacemarkKimiTests", dependencies: ["PacemarkKimi"],
+                    resources: [.copy("Fixtures")], swiftSettings: swiftSettings),
+        .target(name: "PacemarkGrok", dependencies: ["PacemarkKit"], swiftSettings: swiftSettings),
+        .testTarget(name: "PacemarkGrokTests", dependencies: ["PacemarkGrok"],
                     resources: [.copy("Fixtures")], swiftSettings: swiftSettings),
         .testTarget(
             name: "PacemarkKitTests",

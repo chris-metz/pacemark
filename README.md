@@ -16,14 +16,15 @@ Requirements:
 - For Claude monitoring: Claude Code 2.1.283 or later, installed and logged in
 - For Codex monitoring: Codex CLI, installed with a persistent ChatGPT login (`codex login`)
 - For Kimi monitoring: Kimi Code CLI, installed and logged in (`kimi login`)
+- For Grok monitoring: Grok CLI, installed and logged in (`grok login`)
 
 ## Choose providers
 
-Open Settings and enable any of Claude, Codex and Kimi. A fresh installation starts with none enabled. Finding a CLI does not turn monitoring on. On upgrade, an existing saved preference enables Claude once; users who never saved a preference may need to enable it themselves.
+Open Settings and enable any of Claude, Codex, Kimi and Grok. A fresh installation starts with none enabled. Finding a CLI does not turn monitoring on. On upgrade, an existing saved preference enables Claude once; users who never saved a preference may need to enable it themselves.
 
 Every dropdown opening starts on **Overview**, with one entry per enabled provider: its weekly limit, or its monthly limit when it reports no weekly one. Provider tabs show all reported windows, including model limits. **Provider Tabs** switches in Settings hide rows only in those tabs.
 
-The menu bar keeps one saved limit, independently of the open tab. Its initial choice is the first available limit of the first enabled provider, in Claude/Codex/Kimi order. Disabling that provider preserves the choice and leaves only the gauge; re-enabling it restores the value after a successful query.
+The menu bar keeps one saved limit, independently of the open tab. Its initial choice is the first available limit of the first enabled provider, in Claude/Codex/Kimi/Grok order. Disabling that provider preserves the choice and leaves only the gauge; re-enabling it restores the value after a successful query.
 
 Codex readings without reset times retain their percentages, without pace. After an observed Codex reset, Pacemark waits for current data instead of assuming zero. Each provider has its own update age and retry state.
 
@@ -41,7 +42,14 @@ npm install -g @moonshot-ai/kimi-code
 kimi login
 ```
 
-Pacemark leaves credentials and refresh to each CLI. It does not monitor API spending or credit balances. See the compatibility and verification notes for [Codex](docs/codex-verification.md) and [Kimi](docs/kimi-verification.md).
+Grok reports its subscription limit through its CLI's agent interface. For each query, Pacemark starts the installed CLI's `grok agent` for a few seconds, reads the limit without starting a model turn, and closes it. The limit counts everything the subscription includes: Grok Build, calls with API keys created on grok.com, and other Grok products. As with Codex and Kimi, Pacemark accepts any CLI version and checks each response; an incompatible one shows "Can't read Grok limits". To install Grok:
+
+```sh
+curl -fsSL https://x.ai/cli/install.sh | bash
+grok login
+```
+
+Pacemark leaves credentials and refresh to each CLI. It does not monitor API spending or credit balances; Grok API calls count only within the subscription limit that includes them. See the compatibility and verification notes for [Codex](docs/codex-verification.md), [Kimi](docs/kimi-verification.md) and [Grok](docs/grok-verification.md).
 
 ## Build from source
 
@@ -52,6 +60,7 @@ Requirements:
 - For Claude monitoring: Claude Code 2.1.283 or later, installed and logged in
 - For Codex monitoring: Codex CLI, installed with a persistent ChatGPT login (`codex login`)
 - For Kimi monitoring: Kimi Code CLI, installed and logged in (`kimi login`)
+- For Grok monitoring: Grok CLI, installed and logged in (`grok login`)
 
 Then run:
 

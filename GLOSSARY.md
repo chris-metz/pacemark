@@ -5,7 +5,7 @@ A macOS menu bar app that shows at a glance how much of the usage limits of your
 ## Providers and limits
 
 **Provider**:
-An AI service whose limits Pacemark can show, such as Claude, Codex or Kimi.
+An AI service whose limits Pacemark can show, such as Claude, Codex, Kimi or Grok.
 _Avoid_: vendor, service, account
 
 **Enabled provider**:
@@ -21,7 +21,7 @@ The span of time over which a limit is measured (e.g. 5 hours, 7 days or a calen
 _Avoid_: cycle, period, interval
 
 **Weekly limit**:
-A provider's general limit with a 7-day window. For Claude, it counts use across all models.
+A provider's general limit with a 7-day window. For Claude, it counts use across all models. For Grok, it counts use of Grok Build, the Grok API and other Grok products together.
 _Avoid_: weekly quota
 
 **Monthly limit**:

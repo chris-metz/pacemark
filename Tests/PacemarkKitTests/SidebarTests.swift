@@ -76,6 +76,13 @@ import Testing
         #expect(result.dot == .orange)
     }
 
+    @Test func staleValuesAddNoDotOfTheirOwn() {
+        let state = ProviderState(lastAttemptAt: now, lastOutcome: .unavailable, limits: [fiveHour(58), codexWeekly(15)],
+                                  lastSuccessAt: now - 23 * 60, failureStreak: 1)
+
+        #expect(entry(state).dot == nil)
+    }
+
     @Test func aLimitHiddenOnThePageDoesNotCount() {
         let result = entry(succeeded([fiveHour(85), codexWeekly(15)], at: now),
                            settings: Settings(hiddenLimits: ["codex/primary"]))

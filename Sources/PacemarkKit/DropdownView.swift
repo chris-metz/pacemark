@@ -21,20 +21,20 @@ public struct DropdownView: View {
 
     public var body: some View {
         if model.enabledProviders.count < 2 {
-            singlePage
+            withoutSidebar
         } else {
-            pagesWithSidebar
+            withSidebar
         }
     }
 
     /// Nothing to pick: 300 pt with the only provider's page and its update
     /// line in the footer, or the hint to enable providers.
-    private var singlePage: some View {
+    private var withoutSidebar: some View {
         let display = model.enabledProviders.first.map { model.providerDisplay(for: $0.id) }
         return VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 14) {
                 if let display {
-                    providerPage(display.dropdown)
+                    ProviderPage(content: display.dropdown, now: model.now)
                 } else {
                     Text("Enable providers in Settings to see your limits.")
                         .foregroundStyle(.secondary)
@@ -52,7 +52,7 @@ public struct DropdownView: View {
 
     /// 445 pt: the sidebar and the selected page at the 272 pt the rows had
     /// in the 300 pt dropdown. The width stays on every page.
-    private var pagesWithSidebar: some View {
+    private var withSidebar: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 0) {
                 Sidebar(model: model)
@@ -61,10 +61,10 @@ public struct DropdownView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     switch model.selectedPage {
                     case .overview:
-                        ForEach(model.overview) { entry in overviewRow(entry) }
+                        OverviewPage(model: model)
                     case .provider(let id):
                         let display = model.providerDisplay(for: id)
-                        providerPage(display.dropdown)
+                        ProviderPage(content: display.dropdown, now: model.now)
                         if let line = display.updateLine {
                             Text(line)
                                 .font(.system(size: 11))
@@ -84,7 +84,42 @@ public struct DropdownView: View {
         .frame(width: 445)
     }
 
-    private func overviewRow(_ entry: OverviewEntry) -> some View {
+    private func footer(updateLine: String?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let updateLine {
+                Text(updateLine)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Spacer()
+                Button("Settings…") {
+                    dismiss()
+                    openWindow.openSettings()
+                }
+                .keyboardShortcut(",")
+                QuitButton("Quit")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// One entry per enabled provider with its Overview limit, or what stands in
+/// for it, and its update line. **Details** on a compact error selects the
+/// provider's page.
+private struct OverviewPage: View {
+    let model: AppModel
+
+    @Environment(\.timeZone) private var timeZone
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        ForEach(model.overview) { entry in row(entry) }
+    }
+
+    private func row(_ entry: OverviewEntry) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             if case .limit(let limit) = entry.content {
                 var row = limitDisplay(limit, now: model.now, timeZone: timeZone, locale: locale)
@@ -117,9 +152,17 @@ public struct DropdownView: View {
                 .font(.system(size: 11))
         }
     }
+}
 
-    /// A provider's limit rows, or what stands in for them.
-    @ViewBuilder private func providerPage(_ content: DropdownContent) -> some View {
+/// A provider's limit rows, or what stands in for them.
+private struct ProviderPage: View {
+    let content: DropdownContent
+    let now: Date
+
+    @Environment(\.timeZone) private var timeZone
+    @Environment(\.locale) private var locale
+
+    var body: some View {
         switch content {
         case .loading:
             Text("Loading…")
@@ -128,7 +171,7 @@ public struct DropdownView: View {
             ProblemView(problem: problem)
         case .limits(let limits):
             ForEach(limits) { limit in
-                LimitRow(display: limitDisplay(limit, now: model.now, timeZone: timeZone, locale: locale))
+                LimitRow(display: limitDisplay(limit, now: now, timeZone: timeZone, locale: locale))
             }
         case .allHidden:
             Text("All limits are hidden.")
@@ -141,27 +184,6 @@ public struct DropdownView: View {
             ))
         }
     }
-
-    private func footer(updateLine: String?) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let updateLine {
-                Text(updateLine)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-            HStack {
-                Spacer()
-                Button("Settings…") {
-                    dismiss()
-                    openWindow.openSettings()
-                }
-                .keyboardShortcut(",")
-                QuitButton("Quit")
-            }
-            .buttonStyle(.borderless)
-            .foregroundStyle(.secondary)
-        }
-    }
 }
 
 /// Overview, then one entry per enabled provider with its Overview limit's
@@ -170,31 +192,32 @@ public struct DropdownView: View {
 private struct Sidebar: View {
     let model: AppModel
 
+    private static let overview = SidebarEntry(id: "overview", name: "Overview", percentText: nil, dot: nil,
+                                               accessibilityText: "Overview")
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            entry(page: .overview, name: "Overview", percentText: nil, dot: nil, accessibilityText: "Overview")
+            button(Self.overview, selecting: .overview)
             ForEach(model.sidebar) { entry in
-                self.entry(page: .provider(entry.id), name: entry.name, percentText: entry.percentText,
-                           dot: entry.dot, accessibilityText: entry.accessibilityText)
+                button(entry, selecting: .provider(entry.id))
             }
         }
         .frame(width: 128)
     }
 
-    private func entry(page: DropdownPage, name: String, percentText: String?, dot: LimitColor?,
-                       accessibilityText: String) -> some View {
+    private func button(_ entry: SidebarEntry, selecting page: DropdownPage) -> some View {
         let isSelected = model.selectedPage == page
         return Button {
             model.selectedPage = page
         } label: {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(dot?.color ?? .clear)
+                    .fill(entry.dot?.color ?? .clear)
                     .frame(width: 7, height: 7)
-                Text(verbatim: name)
+                Text(verbatim: entry.name)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
                 Spacer(minLength: 4)
-                if let percentText {
+                if let percentText = entry.percentText {
                     Text(verbatim: percentText)
                         .font(.system(size: 11))
                         .monospacedDigit()
@@ -208,7 +231,7 @@ private struct Sidebar: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText)
+        .accessibilityLabel(entry.accessibilityText)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

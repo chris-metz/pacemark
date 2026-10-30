@@ -138,16 +138,26 @@ extension MultiProviderViewTests {
                            width: 445, test: "multi-\(scenario)")
     }
 
-    /// The tab bar of five segments was 345 pt wide and cut the dropdown off
-    /// after a switch; no page may make the dropdown wider than 445 pt.
-    @Test func everyPageKeepsTheWidth() async {
+    /// The tab bar of five segments wanted 345 pt and was squeezed into
+    /// 272 pt. After a tab switch the real menu window laid it out at 345 pt
+    /// and cut the dropdown off on both sides (#41). No control on any page
+    /// may be squeezed below its natural width.
+    @Test func noControlIsSqueezedOnAnyPage() async {
         let model = await Self.attentionModel()
         let host = NSHostingView(rootView: DropdownView(model: model).environment(\.timeZone, berlin).environment(\.locale, enDE))
-        for page in [DropdownPage.overview] + model.enabledProviders.map({ .provider($0.id) }) + [.overview] {
+        host.frame.size = host.fittingSize
+        for page in [DropdownPage.overview] + model.enabledProviders.map({ .provider($0.id) }) {
             model.selectedPage = page
             host.layoutSubtreeIfNeeded()
-            #expect(host.fittingSize.width == 445, "\(page)")
+            for control in Self.controls(in: host) {
+                #expect(control.frame.width >= control.intrinsicContentSize.width - 0.5,
+                        "\(type(of: control)) on \(page): \(control.frame.width) pt of \(control.intrinsicContentSize.width) pt")
+            }
         }
+    }
+
+    private static func controls(in view: NSView) -> [NSControl] {
+        (view as? NSControl).map { [$0] } ?? view.subviews.flatMap(controls)
     }
 
     private static func attentionModel() async -> AppModel {

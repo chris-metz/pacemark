@@ -193,12 +193,13 @@ public nonisolated func sidebarEntry(_ state: ProviderState, providerID: String,
     if case .limit(let limit) = overview.content, !counted.contains(limit) {
         counted.append(limit)
     }
-    let states = counted.map { limitDisplay($0, now: now).state }
-    let attention: (dot: LimitColor, text: String)? =
-        if case .problem = overview.content { (.red, "") }
-        else if states.contains(where: \.isRed) { (.red, "a limit is at 90% or more") }
-        else if states.contains(.overPace) { (.orange, "a limit is over pace") }
-        else { nil }
+    let limitStates = counted.map { limitDisplay($0, now: now).state }
+    // A problem's heading already says what needs attention.
+    let (dot, attentionText): (LimitColor?, String?) =
+        if case .problem = overview.content { (.red, nil) }
+        else if limitStates.contains(where: \.isRed) { (.red, "a limit is at 90% or more") }
+        else if limitStates.contains(.overPace) { (.orange, "a limit is over pace") }
+        else { (nil, nil) }
 
     let percentText: String?
     let statusText: String?
@@ -213,10 +214,7 @@ public nonisolated func sidebarEntry(_ state: ProviderState, providerID: String,
     case .noValues: (percentText, statusText) = ("–", "can't load limits right now")
     case .problem(let problem): (percentText, statusText) = (nil, problem.heading)
     }
-    let accessibilityText = [providerName, statusText, attention?.text]
-        .compactMap { $0 }
-        .filter { !$0.isEmpty }
-        .joined(separator: ", ")
+    let accessibilityText = [providerName, statusText, attentionText].compactMap { $0 }.joined(separator: ", ")
     return SidebarEntry(id: providerID, name: providerName, percentText: percentText,
-                        dot: attention?.dot, accessibilityText: accessibilityText)
+                        dot: dot, accessibilityText: accessibilityText)
 }

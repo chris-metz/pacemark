@@ -10,4 +10,4 @@ Monitoring xAI API spending with an API key of Pacemark's own was rejected as we
 
 - Each query starts a full Grok agent, which touches its session search index and log and fetches models, settings and announcements from xAI. Pacemark disables Grok's telemetry for these starts, runs the agent in an empty temporary directory so it loads no project configuration, and never starts or joins a shared leader process.
 - Pacemark stops the agent by closing its input, which ends it normally after about two seconds. SIGTERM follows only after three seconds, SIGKILL two seconds later.
-- With all four providers enabled, five regular tab segments don't fit the dropdown's width, so its tab bar then uses the small control size.
+- With all four providers enabled, five tab segments don't fit the dropdown's width. The small control size didn't help for long: after a tab switch the bar took its full width and cut the dropdown off, so [#41](https://github.com/chris-metz/pacemark/issues/41) replaced the tab bar with a provider sidebar.

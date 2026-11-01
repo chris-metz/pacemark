@@ -22,9 +22,9 @@ Requirements:
 
 Open Settings and enable any of Claude, Codex, Kimi and Grok. A fresh installation starts with none enabled. Finding a CLI does not turn monitoring on. On upgrade, an existing saved preference enables Claude once; users who never saved a preference may need to enable it themselves.
 
-Every dropdown opening starts on **Overview**, with one entry per enabled provider: its weekly limit, or its monthly limit when it reports no weekly one. Provider tabs show all reported windows, including model limits. **Provider Tabs** switches in Settings hide rows only in those tabs.
+With two or more enabled providers, a sidebar in the dropdown lists **Overview** and each provider with its weekly or monthly percentage. A dot marks a provider when a limit is over pace (orange), at 90 % or more, or when the provider has a problem (red). Every dropdown opening starts on Overview, with one entry per enabled provider: its weekly limit, or its monthly limit when it reports no weekly one. Provider pages show all reported windows, including model limits. **Provider Pages** switches in Settings hide rows only on those pages. With a single enabled provider, the dropdown shows its page directly.
 
-The menu bar keeps one saved limit, independently of the open tab. Its initial choice is the first available limit of the first enabled provider, in Claude/Codex/Kimi/Grok order. Disabling that provider preserves the choice and leaves only the gauge; re-enabling it restores the value after a successful query.
+The menu bar keeps one saved limit, independently of the selected page. Its initial choice is the first available limit of the first enabled provider, in Claude/Codex/Kimi/Grok order. Disabling that provider preserves the choice and leaves only the gauge; re-enabling it restores the value after a successful query.
 
 Codex readings without reset times retain their percentages, without pace. After an observed Codex reset, Pacemark waits for current data instead of assuming zero. Each provider has its own update age and retry state.
 

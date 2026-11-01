@@ -61,9 +61,9 @@ extension MultiProviderTests {
         claude.answer(.limits(claudeLimits))
         _ = await timer.armed()
         #expect(model.settings.menuBarLimitID == "claude/session")
-        model.selectedTab = .provider("codex")
+        model.selectedPage = .provider("codex")
         model.dropdownOpened()
-        #expect(model.selectedTab == .overview)
+        #expect(model.selectedPage == .overview)
         #expect(model.settings.menuBarLimitID == "claude/session")
     }
 

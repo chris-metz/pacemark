@@ -42,7 +42,7 @@ public struct SettingsView: View {
                 menuBarLimit
                 Toggle("Show percentage", isOn: $model.settings.showPercentage)
             }
-            Section("Provider Tabs") {
+            Section("Provider Pages") {
                 shownLimits
             }
             Section {
@@ -73,10 +73,10 @@ public struct SettingsView: View {
         .disabled(picker.isDisabled)
     }
 
-    /// Visibility applies only to provider tabs, never to Overview.
+    /// Visibility applies only to provider pages, never to Overview.
     @ViewBuilder private var shownLimits: some View {
         if model.enabledProviders.isEmpty {
-            Text("Enable a provider to choose which limits appear in its tab.")
+            Text("Enable a provider to choose which limits appear on its page.")
                 .foregroundStyle(.secondary)
         }
         ForEach(model.enabledProviders, id: \.id) { provider in

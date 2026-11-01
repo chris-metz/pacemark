@@ -2,13 +2,14 @@ import Foundation
 import Observation
 import os
 
-public nonisolated enum DropdownTab: Hashable, Sendable {
+public nonisolated enum DropdownPage: Hashable, Sendable {
     case overview
     case provider(String)
 }
 
 /// Owns settings and independent query state for every enabled provider.
-/// Tab navigation and the saved menu bar limit are independent choices.
+/// The selected dropdown page and the saved menu bar limit are independent
+/// choices.
 @Observable public final class AppModel {
     public let providers: [any Provider]
     public var settings: Settings {
@@ -22,7 +23,8 @@ public nonisolated enum DropdownTab: Hashable, Sendable {
             }
         }
     }
-    public var selectedTab: DropdownTab = .overview
+    /// Overview or a provider page, picked in the sidebar.
+    public var selectedPage: DropdownPage = .overview
     public private(set) var now: Date
     public private(set) var states: [String: ProviderState] = [:]
 
@@ -79,6 +81,12 @@ public nonisolated enum DropdownTab: Hashable, Sendable {
         }
     }
 
+    public var sidebar: [SidebarEntry] {
+        enabledProviders.map {
+            sidebarEntry(state(for: $0.id), providerID: $0.id, providerName: $0.name, settings: settings, now: now)
+        }
+    }
+
     public var menuBar: MenuBarDisplay {
         guard let selection = settings.menuBarLimitID,
               let provider = enabledProviders.first(where: { selection.hasPrefix($0.id + "/") }) else {
@@ -131,7 +139,7 @@ public nonisolated enum DropdownTab: Hashable, Sendable {
     }
 
     public func dropdownOpened() {
-        selectedTab = .overview
+        selectedPage = .overview
         now = clock()
         for provider in enabledProviders where shouldQueryOnOpen(state(for: provider.id), now: now) {
             query(provider.id)
@@ -164,7 +172,7 @@ public nonisolated enum DropdownTab: Hashable, Sendable {
 
     private func reconcileProviders() {
         let enabled = Set(enabledProviders.map(\.id))
-        if case .provider(let id) = selectedTab, !enabled.contains(id) { selectedTab = .overview }
+        if case .provider(let id) = selectedPage, !enabled.contains(id) { selectedPage = .overview }
         for id in states.keys where !enabled.contains(id) {
             generations[id, default: 0] += 1
             timers.removeValue(forKey: id)?.cancel()

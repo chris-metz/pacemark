@@ -123,7 +123,7 @@ private nonisolated func ageText(_ age: TimeInterval) -> String {
     }
 }
 
-/// One enabled provider in Overview, independent of provider-tab visibility.
+/// One enabled provider in Overview, independent of provider-page visibility.
 public nonisolated struct OverviewEntry: Equatable, Sendable, Identifiable {
     public let id: String
     public let name: String
@@ -153,4 +153,68 @@ public nonisolated func overviewEntry(_ state: ProviderState, providerID: String
     }
     return OverviewEntry(id: providerID, name: providerName, content: content,
                          updateLine: display(state, providerID: providerID, settings: settings, now: now).updateLine)
+}
+
+/// One enabled provider in the dropdown's sidebar (#41): its name, its
+/// Overview limit's percentage and a dot when something needs attention.
+public nonisolated struct SidebarEntry: Equatable, Sendable, Identifiable {
+    public let id: String
+    public let name: String
+    /// The Overview limit's `{U}%`; `–` without values or while it waits for
+    /// updated limits; `…` while loading; nil for a problem or without an
+    /// Overview limit.
+    public let percentText: String?
+    /// Red for a problem or a counted limit at 90% or more, orange for a
+    /// counted limit over pace; nil when nothing needs attention.
+    public let dot: LimitColor?
+    /// The entry as one accessibility element, e.g. `Codex, 20%, a limit is
+    /// over pace`.
+    public let accessibilityText: String
+
+    public init(id: String, name: String, percentText: String?, dot: LimitColor?, accessibilityText: String) {
+        self.id = id
+        self.name = name
+        self.percentText = percentText
+        self.dot = dot
+        self.accessibilityText = accessibilityText
+    }
+}
+
+/// The sidebar entry for `state` at `now`. The dot counts the limits shown on
+/// the provider page and the Overview limit, which Overview always shows.
+/// A temporary failure or stale values add no dot of their own.
+public nonisolated func sidebarEntry(_ state: ProviderState, providerID: String, providerName: String,
+                                     settings: Settings, now: Date) -> SidebarEntry {
+    let overview = overviewEntry(state, providerID: providerID, providerName: providerName, settings: settings, now: now)
+    var counted: [Limit] = []
+    if case .limits(let shown) = display(state, providerID: providerID, settings: settings, now: now).dropdown {
+        counted = shown
+    }
+    if case .limit(let limit) = overview.content, !counted.contains(limit) {
+        counted.append(limit)
+    }
+    let limitStates = counted.map { limitDisplay($0, now: now).state }
+    // A problem's heading already says what needs attention.
+    let (dot, attentionText): (LimitColor?, String?) =
+        if case .problem = overview.content { (.red, nil) }
+        else if limitStates.contains(where: \.isRed) { (.red, "a limit is at 90% or more") }
+        else if limitStates.contains(.overPace) { (.orange, "a limit is over pace") }
+        else { (nil, nil) }
+
+    let percentText: String?
+    let statusText: String?
+    switch overview.content {
+    case .limit(let limit):
+        let row = limitDisplay(limit, now: now)
+        (percentText, statusText) = row.state == .waitingForUpdate
+            ? ("–", "waiting for updated limits")
+            : (row.percentText, row.percentText)
+    case .noWeeklyLimit: (percentText, statusText) = (nil, nil)
+    case .loading: (percentText, statusText) = ("…", "loading")
+    case .noValues: (percentText, statusText) = ("–", "can't load limits right now")
+    case .problem(let problem): (percentText, statusText) = (nil, problem.heading)
+    }
+    let accessibilityText = [providerName, statusText, attentionText].compactMap { $0 }.joined(separator: ", ")
+    return SidebarEntry(id: providerID, name: providerName, percentText: percentText,
+                        dot: dot, accessibilityText: accessibilityText)
 }
